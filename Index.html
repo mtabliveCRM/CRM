@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TransportCRM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg0:#0f0f0f;--bg1:#1a1a1a;--bg2:#222;--bg3:#2a2a2a;--bg4:#333;
+  --border:#3a3a3a;--border2:#444;
+  --text:#f0f0f0;--text2:#aaa;--text3:#666;
+  --teal:#1D9E75;--teal2:#0F6E56;--teal-bg:#0a2e22;--teal-text:#5dcaa5;
+  --blue:#378ADD;--blue-bg:#0d1e33;--blue-text:#85b7eb;
+  --amber:#EF9F27;--amber-bg:#2a1e08;--amber-text:#FAC775;
+  --red:#E24B4A;--red-bg:#2e0d0d;--red-text:#f09595;
+  --purple-bg:#1e1a2e;--purple-text:#afa9ec;
+  --pink-bg:#2e1020;--pink-text:#ed93b1;
+  --r:8px;--rl:12px;--tbl-fs:13px;--tbl-pad:10px 12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text);background:var(--bg0);height:100vh;overflow:hidden;}
+.wrap{display:flex;height:100vh;}
+.sidebar{width:210px;flex-shrink:0;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+.logo{padding:20px 18px 14px;border-bottom:1px solid var(--border);}
+.logo .name{font-size:16px;font-weight:600;letter-spacing:-.3px;}
+.logo .sub{font-size:11px;color:var(--text3);margin-top:3px;}
+.logo .dot{display:inline-block;width:8px;height:8px;background:var(--teal);border-radius:50%;margin-right:6px;}
+.sync-bar{padding:8px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;min-height:34px;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:background .3s;}
+.sync-dot.ok{background:var(--teal);}
+.sync-dot.busy{background:var(--amber);animation:pulse 1s infinite;}
+.sync-dot.err{background:var(--red);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.sync-label{font-size:11px;color:var(--text3);}
+.nav-section{padding:12px 0;flex:1;}
+.nav-lbl{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:0 18px 6px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;cursor:pointer;font-size:13px;color:var(--text2);border-left:2px solid transparent;transition:all .15s;}
+.nav-item:hover{background:var(--bg2);color:var(--text);}
+.nav-item.active{background:var(--bg2);color:var(--text);border-left-color:var(--teal);font-weight:500;}
+.sidebar-footer{padding:16px 18px;border-top:1px solid var(--border);margin-top:auto;}
+.sidebar-footer img{width:100%;max-width:144px;display:block;opacity:.9;}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{background:var(--bg1);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;}
+.page-title{font-size:15px;font-weight:600;min-width:130px;}
+/* GLOBAL SEARCH */
+.search-wrap{flex:1;max-width:380px;position:relative;}
+.search-wrap input{width:100%;padding:8px 12px 8px 34px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;color:var(--text);}
+.search-wrap input::placeholder{color:var(--text3);}
+.search-wrap input:focus{outline:none;border-color:var(--teal);}
+.s-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);}
+.search-results{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--bg1);border:1px solid var(--border2);border-radius:var(--r);z-index:100;max-height:320px;overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+.search-results.open{display:block;}
+.sr-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;}
+.sr-item:last-child{border-bottom:none;}
+.sr-item:hover{background:var(--bg2);}
+.sr-company{font-size:13px;font-weight:500;}
+.sr-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.sr-match{font-size:11px;color:var(--teal-text);margin-top:3px;font-style:italic;}
+.sr-empty{padding:14px;text-align:center;font-size:13px;color:var(--text3);}
+.topbar-right{margin-left:auto;display:flex;gap:10px;}
+.btn{padding:8px 16px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);font-size:13px;cursor:pointer;color:var(--text);transition:all .15s;white-space:nowrap;font-family:inherit;display:inline-flex;align-items:center;gap:6px;}
+.btn:hover{background:var(--bg4);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn.primary{background:var(--teal);color:#fff;border-color:var(--teal2);font-weight:500;}
+.btn.primary:hover:not(:disabled){background:var(--teal2);}
+.btn.blue-btn{background:var(--blue);color:#fff;border-color:#185FA5;font-weight:500;}
+.btn.blue-btn:hover{background:#185FA5;}
+.btn.amber-btn{background:#854F0B;color:var(--amber-text);border-color:#633806;font-weight:500;}
+.btn.amber-btn:hover{background:#633806;}
+.btn.ghost{background:transparent;border-color:var(--border2);color:var(--text2);}
+.btn.ghost:hover{background:var(--bg2);color:var(--text);}
+.btn.danger-outline{background:transparent;border-color:#6a2020;color:var(--red-text);}
+.btn.danger-outline:hover{background:var(--red-bg);}
+.btn.sm{padding:5px 11px;font-size:12px;}
+.btn.full{width:100%;justify-content:center;}
+.date-pick-row{display:flex;align-items:center;gap:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.date-pick-row input[type=date]{flex:1;padding:9px 12px;background:transparent;border:none;font-size:13px;color:var(--text);font-family:inherit;min-width:0;}
+.date-pick-row input[type=date]:focus{outline:none;}
+.date-pick-row .cal-btn{padding:9px 13px;background:var(--teal);border:none;color:#fff;cursor:pointer;font-size:15px;transition:background .15s;flex-shrink:0;}
+.date-pick-row .cal-btn:hover{background:var(--teal2);}
+.content{flex:1;overflow-y:auto;padding:24px;}
+.page{display:none;}
+.page.active{display:block;}
+.loading-overlay{position:fixed;inset:0;background:rgba(15,15,15,.85);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+.loading-overlay.hidden{display:none;}
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-size:14px;color:var(--text2);}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:12px 18px;font-size:13px;color:var(--text);z-index:400;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.err{border-color:var(--red);color:var(--red-text);}
+.export-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:center;justify-content:center;}
+.export-modal-bg.open{display:flex;}
+.export-modal{background:var(--bg1);border:1px solid var(--border2);border-radius:var(--rl);padding:28px;width:340px;}
+.export-modal h3{font-size:15px;font-weight:600;margin-bottom:8px;}
+.export-modal p{font-size:13px;color:var(--text2);margin-bottom:16px;}
+.export-modal input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);font-size:13px;color:var(--text);font-family:inherit;margin-bottom:12px;}
+.export-modal input:focus{outline:none;border-color:var(--teal);}
+.export-modal-err{font-size:12px;color:var(--red-text);margin-bottom:10px;display:none;}
+.export-modal-btns{display:flex;gap:8px;justify-content:flex-end;}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.stat-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--rl);padding:18px 20px;cursor:pointer;transition:border-color .15s,background .15s;}
+.stat-card:hover{border-color:var(--teal);background:var(--bg2);}
+.stat-card:active{background:var(--bg3);}
+.stat-label{font-size:12px;color:var(--text2);margin-bottom:8px;}
+.stat-num{font-size:28px;font-weight:700;letter-spacing:-1px;}
+.stat-num.teal{color:var(--teal-text);}.stat-num.amber{color:var(--amber-text);}.stat-num.red{color:var(--red-text);}.stat-num.blue{color:var(--blue-text);}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:24px;}
+.day-col{background:var(--bg1);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}
+.day-head{padding:7px 10px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;}
+.day-head.today{background:var(--teal-bg);color:var(--teal-text);border-bottom-color:#0d3828;}
+.day-head.weekend{background:var(--bg3);color:var(--text3);}
+.day-item{padding:7px 8px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
+.day-item:last-child{border-bottom:none;}
+.day-item:hover{background:var(--bg2);}
+.di-name{font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.di-sub{font-size:10px;color:var(--text3);margin-top:2px;}
+.day-empty{padding:10px 8px;font-size:11px;color:var(--text3);text-align:center;}
+.section-h{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;}
+.filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+.filter-bar label{font-size:12px;color:var(--text2);}
+.fsel{padding:8px 28px 8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;color:var(--text);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;font-family:inherit;}
+.fsel:focus{outline:none;border-color:var(--teal);}
+.fsel.has-val{border-color:var(--teal);color:var(--teal-text);}
+.date-range-wrap{display:flex;align-items:center;gap:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.date-range-wrap label{font-size:12px;color:var(--text2);white-space:nowrap;padding:0 8px;}
+.date-range-wrap input{background:transparent;border:none;font-size:13px;color:var(--text);font-family:inherit;width:118px;padding:8px 4px;}
+.date-range-wrap input:focus{outline:none;}
+.date-range-wrap .sep{color:var(--text3);padding:0 2px;}
+.date-range-wrap .cal-icon-btn{padding:8px 12px;background:var(--bg3);border:none;border-left:1px solid var(--border);color:var(--teal-text);cursor:pointer;font-size:14px;}
+.date-range-wrap .cal-icon-btn:hover{background:var(--bg4);}
+.tbl-wrap{background:var(--bg1);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}
+.tbl{width:100%;border-collapse:collapse;table-layout:fixed;}
+.tbl th{padding:var(--tbl-pad);text-align:left;font-size:11px;font-weight:600;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg2);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;overflow:hidden;}
+.tbl th.sortable{cursor:pointer;user-select:none;}
+.tbl th.sortable:hover{color:var(--text2);background:var(--bg3);}
+.tbl th.sort-asc::after{content:' ↑';color:var(--teal-text);}
+.tbl th.sort-desc::after{content:' ↓';color:var(--teal-text);}
+.note-actions-row{display:flex;gap:6px;margin-top:8px;justify-content:flex-end;}
+.note-edit-btn{padding:2px 8px;font-size:11px;border-radius:var(--r);border:1px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer;font-family:inherit;transition:all .15s;}
+.note-edit-btn:hover{color:var(--text);border-color:var(--teal);}
+.note-del-btn{padding:2px 8px;font-size:11px;border-radius:var(--r);border:1px solid transparent;background:transparent;color:var(--text3);cursor:pointer;font-family:inherit;transition:all .15s;}
+.note-del-btn:hover{color:var(--red-text);border-color:var(--red);}
+.note-edit-area{width:100%;padding:7px 10px;border:1px solid var(--teal);border-radius:var(--r);background:var(--bg0);font-size:13px;color:var(--text);font-family:inherit;resize:vertical;margin-top:8px;}
+.note-edit-area:focus{outline:none;}
+.activity-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.activity-item:last-child{border-bottom:none;}
+.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.activity-dot.contact{background:var(--teal);}
+.activity-dot.system{background:var(--amber);}
+.activity-dot.note{background:var(--blue);}
+.activity-dot.nextstep{background:var(--purple-text);}
+.activity-company{font-weight:500;color:var(--text);margin-right:4px;cursor:pointer;}
+.activity-company:hover{color:var(--teal-text);}
+.activity-meta{font-size:11px;color:var(--text3);margin-top:2px;}
+.tbl td{padding:var(--tbl-pad);font-size:var(--tbl-fs);border-bottom:1px solid var(--border);vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tbody tr:hover td{background:var(--bg2);cursor:pointer;}
+.tbl .empty td{text-align:center;color:var(--text3);padding:32px;cursor:default;}
+.tbl .empty:hover td{background:transparent;}
+.overdue-row{background:var(--red-bg);}
+.overdue-row:hover td{background:#3a1010 !important;}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+.badge.hot{background:#3a1800;color:#f0997b;border:1px solid #5a2800;}
+.badge.warm{background:var(--amber-bg);color:var(--amber-text);border:1px solid #3a2a08;}
+.badge.cold{background:var(--blue-bg);color:var(--blue-text);border:1px solid #1a3050;}
+.badge.s-contacted{background:var(--teal-bg);color:var(--teal-text);border:1px solid #0d3828;}
+.badge.s-sleeping{background:var(--bg3);color:var(--text2);border:1px solid var(--border2);}
+.badge.s-offer{background:var(--purple-bg);color:var(--purple-text);border:1px solid #2a2040;}
+.badge.s-negotiation{background:var(--pink-bg);color:var(--pink-text);border:1px solid #4a1535;}
+.badge.active-yr{background:var(--teal-bg);color:var(--teal-text);border:1px solid #0d3828;}
+.badge.inactive{background:var(--bg3);color:var(--text3);border:1px solid var(--border);}
+.badge.overdue{background:var(--red-bg);color:var(--red-text);border:1px solid #4a1515;}
+.badge.industry{background:var(--blue-bg);color:var(--blue-text);border:1px solid #1a3050;}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.dot.hot{background:#D85A30;}.dot.warm{background:var(--amber);}.dot.cold{background:var(--blue);}
+.flag-row{display:flex;gap:10px;flex-wrap:wrap;}
+.flag-box{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s;user-select:none;}
+.flag-box:hover{color:var(--text);}
+.flag-box.checked-offer{border-color:#534AB7;background:var(--purple-bg);color:var(--purple-text);}
+.flag-box.checked-negotiation{border-color:#993556;background:var(--pink-bg);color:var(--pink-text);}
+.flag-check{width:16px;height:16px;border-radius:4px;border:1px solid var(--border2);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+.credit-block{background:var(--bg2);border:1px solid #2d5c2d;border-radius:var(--r);padding:12px 14px;}
+.credit-label{font-size:11px;font-weight:600;color:#7ecf7e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.credit-no-date{font-size:13px;color:var(--text3);font-style:italic;margin-bottom:10px;}
+.notes-filter-bar{display:flex;gap:6px;margin-bottom:12px;}
+.note-filter-btn{padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg2);font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;}
+.note-filter-btn:hover{color:var(--text);}
+.note-filter-btn.active{background:var(--teal-bg);border-color:var(--teal);color:var(--teal-text);font-weight:600;}
+.note{padding:12px 14px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--border2);margin-bottom:8px;}
+.note.n-contact{border-left-color:var(--teal);}
+.note.n-note{border-left-color:var(--blue);}
+.note.n-nextstep{border-left-color:var(--purple-text);}
+.note.n-system{border-left-color:var(--amber);}
+.note-meta{font-size:11px;color:var(--text3);margin-bottom:5px;display:flex;gap:10px;align-items:center;}
+.note-type-pill{display:inline-flex;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;}
+.note-type-pill.manual{background:var(--blue-bg);color:var(--blue-text);}
+.note-type-pill.nextstep{background:var(--purple-bg);color:var(--purple-text);}
+.note-type-pill.contact{background:var(--teal-bg);color:var(--teal-text);}
+.note-type-pill.system{background:var(--amber-bg);color:var(--amber-text);}
+.note-text{font-size:13px;color:var(--text);line-height:1.5;}
+.note-panel{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;padding:14px;background:var(--bg2);border-radius:var(--r);border:1px solid var(--border);}
+.note-panel label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;}
+.note-textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg0);font-size:13px;color:var(--text);font-family:inherit;resize:vertical;min-height:70px;}
+.note-textarea:focus{outline:none;border-color:var(--teal);}
+.nextstep-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg0);font-size:13px;color:var(--text);font-family:inherit;}
+.nextstep-input:focus{outline:none;border-color:var(--purple-text);}
+.nextstep-input::placeholder{color:var(--text3);}
+.note-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--bg1);border:1px solid var(--border2);border-radius:var(--rl);width:92%;max-width:680px;max-height:88vh;overflow-y:auto;}
+.modal-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-head h2{font-size:16px;font-weight:600;}
+.modal-close{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;line-height:1;padding:0 4px;}
+.modal-close:hover{color:var(--text);}
+.modal-body{padding:22px;}
+.modal-foot{padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-group.full{grid-column:1/-1;}
+.form-group label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;}
+.form-group input,.form-group select,.form-group textarea{padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);font-size:13px;color:var(--text);font-family:inherit;transition:border-color .15s;}
+.form-group select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--teal);}
+.form-group textarea{resize:vertical;min-height:70px;}
+.temp-row{display:flex;gap:8px;}
+.temp-opt{padding:7px 16px;border-radius:20px;border:1px solid var(--border2);background:var(--bg2);cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s;}
+.temp-opt:hover{color:var(--text);}
+.temp-opt.sel-hot{background:#3a1800;border-color:#5a2800;color:#f0997b;font-weight:600;}
+.temp-opt.sel-warm{background:var(--amber-bg);border-color:#3a2a08;color:var(--amber-text);font-weight:600;}
+.temp-opt.sel-cold{background:var(--blue-bg);border-color:#1a3050;color:var(--blue-text);font-weight:600;}
+.toggle-wrap{display:flex;align-items:center;justify-content:space-between;}
+.toggle{width:40px;height:23px;background:var(--bg4);border-radius:12px;cursor:pointer;position:relative;transition:background .2s;border:1px solid var(--border2);flex-shrink:0;}
+.toggle.on{background:var(--teal);border-color:var(--teal2);}
+.toggle::after{content:'';position:absolute;width:17px;height:17px;background:var(--text3);border-radius:50%;top:2px;left:2px;transition:transform .2s;}
+.toggle.on::after{transform:translateX(17px);background:#fff;}
+.detail-layout{display:grid;grid-template-columns:300px 1fr;gap:16px;}
+.detail-col{display:flex;flex-direction:column;gap:12px;}
+.card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--rl);padding:18px;}
+.card h3{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;}
+.d-company{font-size:20px;font-weight:700;margin-bottom:4px;letter-spacing:-.3px;}
+.d-sub{font-size:13px;color:var(--text2);}
+.d-prognos{font-size:13px;color:var(--text2);margin-top:8px;}
+.d-prognos strong{color:var(--teal-text);}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.info-row:last-child{border-bottom:none;}
+.info-label{color:var(--text2);}
+.info-value{font-weight:500;}
+.back-btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);cursor:pointer;margin-bottom:18px;padding:6px 12px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg1);transition:all .15s;}
+.back-btn:hover{color:var(--text);background:var(--bg2);}
+.ind-chip,.sp-chip{display:inline-flex;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg2);font-size:12px;color:var(--text2);cursor:pointer;margin:3px;transition:all .15s;}
+.ind-chip:hover,.sp-chip:hover{color:var(--text);}
+.ind-chip.active{background:var(--blue-bg);border-color:var(--blue);color:var(--blue-text);font-weight:600;}
+.sp-chip.active{background:var(--teal-bg);border-color:var(--teal);color:var(--teal-text);font-weight:600;}
+.admin-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);margin-bottom:6px;}
+.admin-item input{flex:1;background:transparent;border:none;font-size:13px;color:var(--text);font-family:inherit;padding:0;}
+.admin-item input:focus{outline:none;}
+.admin-item-btns{display:flex;gap:6px;flex-shrink:0;}
+.admin-add{display:flex;gap:8px;margin-top:12px;}
+.admin-add input{flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);font-size:13px;color:var(--text);font-family:inherit;}
+.admin-add input:focus{outline:none;border-color:var(--teal);}
+.bar-row{display:flex;align-items:center;gap:10px;font-size:13px;margin-bottom:10px;}
+.bar-label{min-width:150px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.bar-fill{height:100%;background:var(--teal);border-radius:3px;}
+.bar-count{min-width:24px;text-align:right;color:var(--text3);font-size:12px;}
+.drop-zone{border:2px dashed var(--border2);border-radius:var(--rl);padding:48px 32px;text-align:center;color:var(--text3);cursor:pointer;transition:all .15s;}
+.drop-zone:hover{border-color:var(--teal);color:var(--teal-text);}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loading-overlay"><div class="spinner"></div><div class="loading-text" id="loading-text">Ansluter till databasen...</div></div>
+<div class="toast" id="toast"></div>
+<div class="export-modal-bg" id="export-modal-bg">
+  <div class="export-modal">
+    <h3>&#128274; Exportera data</h3>
+    <p>Ange administratörslösenordet för att exportera kunddata.</p>
+    <input type="password" id="export-pw-input" placeholder="Lösenord..." onkeydown="if(event.key==='Enter')confirmExport()">
+    <div class="export-modal-err" id="export-pw-err">Fel lösenord. Försök igen.</div>
+    <div class="export-modal-btns">
+      <button class="btn ghost" onclick="closeExportModal()">Avbryt</button>
+      <button class="btn primary" onclick="confirmExport()">Exportera</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="sidebar">
+    <div class="logo"><div class="name"><span class="dot"></span>TransportCRM</div><div class="sub">Säljöversikt</div></div>
+    <div class="sync-bar"><div class="sync-dot" id="sync-dot"></div><span class="sync-label" id="sync-label">Ansluter...</span></div>
+    <div class="nav-section">
+      <div class="nav-lbl">Meny</div>
+      <div class="nav-item" id="nav-dashboard" onclick="nav('dashboard')">&#9635; Dashboard</div>
+      <div class="nav-item" id="nav-customers" onclick="nav('customers')">&#9826; Kunder</div>
+      <div class="nav-item" id="nav-followup" onclick="nav('followup')">&#9719; Uppföljning</div>
+      <div class="nav-item" id="nav-admin" onclick="nav('admin')">&#9881; Administration</div>
+      <div class="nav-item" id="nav-import" onclick="nav('import')">&#8615; Importera</div>
+    </div>
+    <div class="sidebar-footer">
+      <img id="sidebar-logo-img" alt="MTAB Live">
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="topbar-title">Dashboard</div>
+      <div class="search-wrap">
+        <span class="s-icon">&#128269;</span>
+        <input type="text" id="searchInput" placeholder="Sök kund, kontakt, anteckning..." oninput="handleGlobalSearch(this.value)" onblur="scheduleCloseSearch()" onfocus="if(this.value)showSearchResults(globalSearchResults)">
+        <div class="search-results" id="search-results"></div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn blue-btn" onclick="openExportModal()">&#128274; Exportera</button>
+        <button class="btn primary" onclick="openNewCustomer()">+ Ny kund</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- DASHBOARD -->
+      <div class="page" id="page-dashboard">
+        <div class="stat-grid">
+          <div class="stat-card" onclick="navWithFilter('customers','status','Kontaktad')" title="Visa kontaktade kunder"><div class="stat-label">Kontaktade</div><div class="stat-num teal" id="stat-active">—</div></div>
+          <div class="stat-card" onclick="navWithFilter('customers','deal','')" title="Visa offert/förhandling"><div class="stat-label">Offert ute / Förhandling</div><div class="stat-num blue" id="stat-deal">—</div></div>
+          <div class="stat-card" onclick="navWithFilter('customers','misc','overdue')" title="Visa förfallna"><div class="stat-label">Förfallna uppföljningar</div><div class="stat-num red" id="stat-overdue">—</div></div>
+          <div class="stat-card" onclick="navWithFilter('followup','week','')" title="Visa veckans kontakter"><div class="stat-label">Denna vecka att kontakta</div><div class="stat-num amber" id="stat-week">—</div></div>
+        </div>
+        <div class="section-h">Planering — 7 dagar framåt</div>
+        <div class="week-grid" id="week-grid" style="margin-bottom:24px;"></div>
+        <div class="section-h">Förfallna uppföljningar</div>        <div class="tbl-wrap" style="margin-bottom:24px;">
+          <table class="tbl"><thead><tr>
+            <th style="width:20%">Företag</th><th style="width:11%">Säljare</th><th style="width:10%">Bransch</th>
+            <th style="width:8%">Temp</th><th style="width:13%">Förföll</th><th style="width:13%">Status</th>
+            <th style="width:15%">Nästa steg</th><th style="width:8%">Prognos</th>
+          </tr></thead><tbody id="dash-overdue"></tbody></table>
+        </div>
+        <div class="section-h">Heta kunder</div>
+        <div class="tbl-wrap">
+          <table class="tbl"><thead><tr>
+            <th style="width:20%">Företag</th><th style="width:11%">Säljare</th><th style="width:11%">Bransch</th>
+            <th style="width:13%">Nästa kontakt</th><th style="width:13%">Status</th>
+            <th style="width:15%">Nästa steg</th><th style="width:8%">Prognos</th>
+          </tr></thead><tbody id="dash-hot"></tbody></table>
+        </div>
+
+        <div class="section-h" style="margin-top:24px;margin-bottom:10px;">Senaste aktivitet i systemet</div>
+        <div class="tbl-wrap">
+          <div id="activity-log" style="padding:4px 0;max-height:260px;overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <!-- CUSTOMERS -->
+      <div class="page" id="page-customers">
+        <div class="filter-bar">
+          <label>Filter:</label>
+          <select class="fsel" id="filter-temp" onchange="onFC(this)"><option value="">Alla temp</option><option value="Het">Heta</option><option value="Ljummen">Ljumna</option><option value="Sval">Svala</option></select>
+          <select class="fsel" id="filter-status" onchange="onFC(this)"><option value="">Alla statusar</option><option value="Kontaktad">Kontaktad</option><option value="Offert ute">Offert ute</option><option value="Förhandling">Förhandling</option><option value="Vilande">Vilande</option></select>
+          <select class="fsel" id="filter-industry" onchange="onFC(this)"><option value="">Alla branscher</option></select>
+          <select class="fsel" id="filter-salesperson" onchange="onFC(this)"><option value="">Alla säljare</option></select>
+          <select class="fsel" id="filter-misc" onchange="onFC(this)"><option value="">Övrigt</option><option value="active_year">Aktiv i år</option><option value="overdue">Förfallen</option></select>
+          <button class="btn sm ghost" onclick="clearFilters()">Rensa</button>
+          <span id="filter-count" style="font-size:12px;color:var(--text3);"></span>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl"><thead><tr>
+            <th class="sortable" style="width:16%" onclick="sortCustomers('company')">Företag</th>
+            <th style="width:10%">Säljare</th>
+            <th style="width:10%">Bransch</th>
+            <th class="sortable" style="width:8%" onclick="sortCustomers('temp')">Temp</th>
+            <th class="sortable" style="width:10%" onclick="sortCustomers('next_contact')">Nästa kontakt</th>
+            <th style="width:11%">Status</th>
+            <th style="width:16%">Nästa steg</th>
+            <th class="sortable" style="width:8%" onclick="sortCustomers('prognos')">Prognos</th>
+            <th style="width:9%">Aktiv i år</th>
+          </tr></thead><tbody id="customer-list"></tbody></table>
+        </div>
+      </div>
+
+      <!-- FOLLOWUP -->
+      <div class="page" id="page-followup">
+        <div class="filter-bar">
+          <label>Intervall:</label>
+          <div class="date-range-wrap">
+            <label>Från</label><input type="date" id="fu-from" onchange="renderFollowup()">
+            <span class="sep">—</span>
+            <label>Till</label><input type="date" id="fu-to" onchange="renderFollowup()">
+            <button class="cal-icon-btn" onclick="document.getElementById('fu-from').showPicker&&document.getElementById('fu-from').showPicker()" title="Välj datum">&#128197;</button>
+          </div>
+          <button class="btn sm ghost" onclick="setFuRange(0,7)">Denna vecka</button>
+          <button class="btn sm ghost" onclick="setFuRange(0,14)">2 veckor</button>
+          <button class="btn sm ghost" onclick="setFuRange(0,30)">30 dagar</button>
+          <button class="btn sm ghost" onclick="setFuRange(-90,0)">Förfallna</button>
+          <button class="btn sm ghost" onclick="clearFuRange()">Alla</button>
+          <select class="fsel" id="fu-salesperson" onchange="renderFollowup()"><option value="">Alla säljare</option></select>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl"><thead><tr>
+            <th style="width:17%">Företag</th><th style="width:10%">Säljare</th><th style="width:9%">Bransch</th>
+            <th style="width:8%">Temp</th><th style="width:11%">Nästa kontakt</th><th style="width:11%">Status</th>
+            <th style="width:14%">Nästa steg</th><th style="width:11%">Senaste kontakt</th><th style="width:9%">Åtgärd</th>
+          </tr></thead><tbody id="followup-list"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ADMIN -->
+      <div class="page" id="page-admin">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div class="card">
+            <h3>Säljare</h3>
+            <div id="sp-admin-list"></div>
+            <div class="admin-add"><input type="text" id="new-sp-input" placeholder="Namn på säljare..." onkeydown="if(event.key==='Enter')addSalesperson()"><button class="btn primary" onclick="addSalesperson()">Lägg till</button></div>
+          </div>
+          <div class="card">
+            <h3>Branscher</h3>
+            <p style="font-size:12px;color:var(--text3);margin-bottom:10px;">Klicka på ett branschnamn för att redigera.</p>
+            <div id="industry-admin-list"></div>
+            <div class="admin-add"><input type="text" id="new-ind-input" placeholder="Namn på ny bransch..." onkeydown="if(event.key==='Enter')addIndustry()"><button class="btn primary" onclick="addIndustry()">Lägg till</button></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card"><h3>Kunder per säljare</h3><div id="sp-stats" style="margin-top:4px;"></div></div>
+          <div class="card"><h3>Kunder per bransch</h3><div id="industry-stats" style="margin-top:4px;"></div></div>
+        </div>
+      </div>
+
+      <!-- IMPORT -->
+      <div class="page" id="page-import">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card">
+            <h3>Importera via CSV</h3>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Kolumner: Företag, Kontaktperson, Telefon, E-post, Prognos, Temperatur, Bransch, Säljare, Kommentar, Källa, Senast_kontakt</p>
+            <div class="drop-zone" onclick="document.getElementById('csvFile').click()">
+              <div style="font-size:32px;margin-bottom:10px;">&#128194;</div>
+              <div style="font-weight:500;">Klicka för att välja CSV-fil</div>
+              <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleImport(this)">
+            </div>
+            <div id="import-msg" style="margin-top:12px;font-size:13px;color:var(--teal-text);"></div>
+          </div>
+          <div class="card">
+            <h3>Ladda ner CSV-mall</h3>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Mall med alla kolumner i rätt format.</p>
+            <button class="btn primary" onclick="downloadTemplate()">&#8595; Ladda ner mall</button>
+            <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+              <div class="section-h" style="margin-bottom:6px;">Branscher</div>
+              <div id="import-ind-list" style="font-size:13px;color:var(--text2);line-height:1.9;margin-bottom:12px;"></div>
+              <div class="section-h" style="margin-bottom:6px;">Säljare</div>
+              <div id="import-sp-list" style="font-size:13px;color:var(--text2);line-height:1.9;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DETAIL -->
+      <div class="page" id="page-detail">
+        <div class="back-btn" onclick="goBack()">&#8592; Tillbaka</div>
+        <div class="detail-layout">
+          <div class="detail-col">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+                <div><div class="d-company" id="d-company"></div><div class="d-sub" id="d-contact"></div><div class="d-prognos">Prognos: <strong id="d-prognos"></strong></div></div>
+                <div id="d-temp-badge"></div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;" id="d-badges"></div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="d-flag-badges"></div>
+              <div style="margin-bottom:12px;" id="d-ind-badge"></div>
+              <div class="info-row"><span class="info-label">Säljare</span><span class="info-value" id="d-salesperson"></span></div>
+              <div class="info-row"><span class="info-label">Telefon</span><span class="info-value" id="d-phone"></span></div>
+              <div class="info-row"><span class="info-label">E-post</span><span class="info-value" id="d-email"></span></div>
+              <div class="info-row"><span class="info-label">Senaste kontakt</span><span class="info-value" id="d-last"></span></div>
+              <div class="info-row"><span class="info-label">Nästa kontakt</span><span class="info-value" id="d-next"></span></div>
+            </div>
+            <div class="card">
+              <h3>&#9989; Kreditvärdighet</h3>
+              <div class="credit-block"><div class="credit-label">&#128200; Senaste kreditkontroll</div><div id="credit-display"></div></div>
+            </div>
+            <div class="card">
+              <h3>&#128197; Sätt nästa kontaktdatum</h3>
+              <div class="date-pick-row" style="margin-bottom:8px;"><input type="date" id="d-manual-date"><button class="cal-btn" onclick="setManualDate()" title="Spara datum">&#10003;</button></div>
+              <p style="font-size:11px;color:var(--text3);">Hoppar automatiskt över helger.</p>
+            </div>
+            <div class="card">
+              <h3>Säljläge</h3>
+              <div class="flag-row">
+                <div class="flag-box" id="flag-offer" onclick="toggleFlag('has_offer')"><div class="flag-check" id="fc-offer"></div><span>Offert ute</span></div>
+                <div class="flag-box" id="flag-negotiation" onclick="toggleFlag('has_negotiation')"><div class="flag-check" id="fc-negotiation"></div><span>I förhandling</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Temperatur</h3>
+              <div class="temp-row" id="d-temp-row" style="margin-bottom:16px;">
+                <div class="temp-opt" onclick="setTemp('Het')">Het</div>
+                <div class="temp-opt" onclick="setTemp('Ljummen')">Ljummen</div>
+                <div class="temp-opt" onclick="setTemp('Sval')">Sval</div>
+              </div>
+              <div class="toggle-wrap"><span style="font-size:13px;color:var(--text2);">Aktiv under året</span><div class="toggle" id="d-year-toggle" onclick="toggleYear()"></div></div>
+            </div>
+            <div class="card"><h3>Säljare</h3><div id="d-sp-chips"></div></div>
+            <div class="card"><h3>Bransch</h3><div id="d-ind-chips"></div></div>
+            <div class="card">
+              <button class="btn full" onclick="editCurrent()">Redigera kunduppgifter</button>
+            </div>
+          </div>
+          <div class="card" style="display:flex;flex-direction:column;min-height:560px;">
+            <h3 style="margin-bottom:12px;">Anteckningar &amp; historik</h3>
+            <div class="note-panel">
+              <div><label>Anteckning</label><textarea class="note-textarea" id="note-text" placeholder="Skriv en anteckning eller logg..."></textarea></div>
+              <div><label style="color:var(--purple-text);">Nästa steg</label><input type="text" class="nextstep-input" id="nextstep-text" placeholder="Vad ska hända härnäst? (valfritt)"></div>
+              <div class="note-actions">
+                <button class="btn primary sm" onclick="saveNote()">&#128221; Spara anteckning</button>
+                <button class="btn amber-btn sm" onclick="markContacted()">&#10003; Kontaktad (+14 vardagar)</button>
+                <button class="btn ghost sm" onclick="markSleeping()">&#128564; Sätt som vilande</button>
+              </div>
+            </div>
+            <div class="notes-filter-bar">
+              <div class="note-filter-btn active" id="nf-all" onclick="setNoteFilter('manual')">Manuella</div>
+              <div class="note-filter-btn" id="nf-system" onclick="setNoteFilter('system')">Systemloggar</div>
+              <div class="note-filter-btn" id="nf-both" onclick="setNoteFilter('all')">Alla</div>
+            </div>
+            <div style="flex:1;overflow-y:auto;" id="notes-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOMER MODAL -->
+<div class="modal-overlay" id="modal-customer">
+  <div class="modal">
+    <div class="modal-head"><h2 id="modal-title">Ny kund</h2><button class="modal-close" onclick="closeModal()">&#215;</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full"><label>Företagsnamn *</label><input type="text" id="f-company" placeholder="Företag AB"></div>
+        <div class="form-group"><label>Kontaktperson</label><input type="text" id="f-contact"></div>
+        <div class="form-group"><label>Telefon</label><input type="text" id="f-phone"></div>
+        <div class="form-group"><label>E-post</label><input type="email" id="f-email"></div>
+        <div class="form-group"><label>Årsprognos (kr)</label><input type="number" id="f-prognos"></div>
+        <div class="form-group"><label>Bransch</label><select id="f-industry"><option value="">— Välj bransch —</option></select></div>
+        <div class="form-group"><label>Säljare</label><select id="f-salesperson"><option value="">— Välj säljare —</option></select></div>
+        <div class="form-group"><label>Nästa kontakt</label><input type="date" id="f-next"></div>
+        <div class="form-group full"><label>Temperatur</label>
+          <div class="temp-row" id="modal-temp-row">
+            <div class="temp-opt" onclick="mSelTemp(this,'Het')">Het</div>
+            <div class="temp-opt" onclick="mSelTemp(this,'Ljummen')">Ljummen</div>
+            <div class="temp-opt sel-cold" onclick="mSelTemp(this,'Sval')">Sval</div>
+          </div>
+          <input type="hidden" id="f-temp" value="Sval">
+        </div>
+        <div class="form-group full">
+          <div class="toggle-wrap"><span style="font-size:13px;color:var(--text2);">Aktiv under året</span><div class="toggle" id="modal-year-tog" onclick="this.classList.toggle('on')"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Avbryt</button><button class="btn primary" id="modal-save-btn" onclick="saveCustomer()">Spara kund</button></div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL='https://xhsbnzavwmfufuazsuyj.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhoc2JuemF2d21mdWZ1YXpzdXlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTM1MzQsImV4cCI6MjA5MjQ2OTUzNH0.8_Ey-UZvX7jBuqrOGuFLkKYohguIffUQjEwK8o1rFDY';
+const H={'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'return=representation'};
+async function sb(method,table,body,params=''){
+  const url=SUPA_URL+'/rest/v1/'+table+(params?'?'+params:'');
+  const opts={method,headers:H};if(body)opts.body=JSON.stringify(body);
+  const r=await fetch(url,opts);
+  if(!r.ok){const e=await r.text();throw new Error(table+' '+method+': '+e);}
+  if(method==='DELETE'||r.status===204)return[];return r.json();
+}
+const dbGet=(t,p)=>sb('GET',t,null,p);
+const dbPost=(t,b)=>sb('POST',t,b);
+const dbPatch=(t,b,p)=>sb('PATCH',t,b,p);
+const dbDel=(t,p)=>sb('DELETE',t,null,p);
+
+let customers=[],industries=[],salespersons=[],notesIndex={};
+let currentCustomerId=null,editingId=null,detailFromPage='customers';
+let lastFiltered=[],allNotes=[],noteFilter='manual';
+let exportPassword=null;
+let globalSearchResults=[];
+let searchCloseTimer=null;
+let searchQuery='';
+let sortField='company', sortDir=1;
+let autoRefreshTimer=null;
+
+const today=()=>new Date().toISOString().split('T')[0];
+function nextWeekday(d,n){let dt=new Date(d+'T12:00:00'),a=0;while(a<n){dt.setDate(dt.getDate()+1);const wd=dt.getDay();if(wd!==0&&wd!==6)a++;}return dt.toISOString().split('T')[0];}
+const addDays=(d,n)=>{let dt=new Date(d+'T12:00:00');dt.setDate(dt.getDate()+n);return dt.toISOString().split('T')[0];};
+const fmtDate=d=>d?new Date(d+'T12:00:00').toLocaleDateString('sv-SE',{day:'numeric',month:'short',year:'numeric'}):'—';
+const isOverdue=c=>c.next_contact&&c.next_contact<today()&&c.status!=='Vilande';
+const fmtK=p=>p?(p/1000).toFixed(0)+'k':'—';
+const fmtFull=p=>p?p.toLocaleString('sv-SE')+' kr':'—';
+const DAYS_SV=['Sön','Mån','Tis','Ons','Tor','Fre','Lör'];
+const MONTHS_SV=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+
+function setSyncStatus(s,t){document.getElementById('sync-dot').className='sync-dot'+(s==='ok'?' ok':s==='busy'?' busy':s==='err'?' err':'');document.getElementById('sync-label').textContent=t;}
+function showToast(msg,isErr=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(isErr?' err':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+function setLoading(show,text=''){document.getElementById('loading-overlay').classList.toggle('hidden',!show);if(text)document.getElementById('loading-text').textContent=text;}
+
+function tempBadge(t){if(t==='Het')return'<span class="badge hot"><span class="dot hot"></span>Het</span>';if(t==='Ljummen')return'<span class="badge warm"><span class="dot warm"></span>Ljummen</span>';return'<span class="badge cold"><span class="dot cold"></span>Sval</span>';}
+function statusBadge(c){const s=c.status;if(s==='Offert ute')return'<span class="badge s-offer">&#128196; Offert ute</span>';if(s==='Förhandling')return'<span class="badge s-negotiation">&#9878; Förhandling</span>';if(s==='Vilande')return'<span class="badge s-sleeping">Vilande</span>';return'<span class="badge s-contacted">Kontaktad</span>';}
+function dealBadges(c){let b='';if(c.has_offer)b+='<span class="badge s-offer">&#128196; Offert ute</span> ';if(c.has_negotiation)b+='<span class="badge s-negotiation">&#9878; Förhandling</span>';return b;}
+function indBadge(i){return i?'<span class="badge industry">'+i+'</span>':'';}
+
+// ── GLOBAL SEARCH ─────────────────────────────────────────
+function handleGlobalSearch(val){searchQuery=val.trim();
+  const q=val.trim().toLowerCase();
+  const el=document.getElementById('search-results');
+  if(!q){el.classList.remove('open');globalSearchResults=[];return;}
+  globalSearchResults=customers.filter(c=>{
+    const basic=c.company.toLowerCase().includes(q)||(c.contact||'').toLowerCase().includes(q)||(c.salesperson||'').toLowerCase().includes(q)||(c.industry||'').toLowerCase().includes(q)||(c.next_step||'').toLowerCase().includes(q);
+    const inNotes=(notesIndex[c.id]||[]).some(n=>n.text&&n.text.toLowerCase().includes(q));
+    return basic||inNotes;
+  }).slice(0,12);
+  showSearchResults(globalSearchResults,q);
+}
+
+function showSearchResults(results,q=''){
+  const el=document.getElementById('search-results');
+  if(!results||!results.length){el.innerHTML='<div class="sr-empty">Inga träffar</div>';el.classList.add('open');return;}
+  const ql=q.toLowerCase();
+  el.innerHTML=results.map(c=>{
+    const matchingNote=(notesIndex[c.id]||[]).find(n=>n.text&&n.text.toLowerCase().includes(ql));
+    const snippet=matchingNote?'Anteckning: '+matchingNote.text.substring(0,60)+(matchingNote.text.length>60?'...':''):'';
+    return '<div class="sr-item" onmousedown="selectSearchResult(\''+c.id+'\')">'
+      +'<div class="sr-company">'+c.company+'</div>'
+      +'<div class="sr-sub">'+(c.contact||'')+(c.salesperson?' · '+c.salesperson:'')+'</div>'
+      +(snippet?'<div class="sr-match">'+snippet+'</div>':'')
+      +'</div>';
+  }).join('');
+  el.classList.add('open');
+}
+
+function selectSearchResult(id){
+  document.getElementById('searchInput').value='';
+  document.getElementById('search-results').classList.remove('open');
+  globalSearchResults=[];
+  openDetail(id,'customers');
+}
+
+function scheduleCloseSearch(){
+  searchCloseTimer=setTimeout(()=>{document.getElementById('search-results').classList.remove('open');},200);
+}
+
+// ── LOAD ──────────────────────────────────────────────────
+async function loadAll(){
+  setSyncStatus('busy','Hämtar data...');
+  try{
+    const[c,ind,sp,settings,notes]=await Promise.all([
+      dbGet('customers','order=company.asc&select=*'),
+      dbGet('industries','order=name.asc&select=*'),
+      dbGet('salespersons','order=name.asc'),
+      dbGet('app_settings','key=eq.export_password&select=value'),
+      dbGet('notes','order=note_date.desc,created_at.desc&select=*')
+    ]);
+    customers=c;
+    industries=ind.map(r=>r.name);
+    salespersons=sp.map(r=>r.name);
+    exportPassword=settings&&settings[0]?settings[0].value:null;
+    notesIndex={};
+    notes.forEach(n=>{if(!notesIndex[n.customer_id])notesIndex[n.customer_id]=[];notesIndex[n.customer_id].push(n);});
+    setSyncStatus('ok','Synkat');
+  }catch(e){setSyncStatus('err','Anslutningsfel');showToast('Kunde inte ansluta till databasen',true);throw e;}
+}
+
+async function loadNotes(customerId){
+  const notes=await dbGet('notes','customer_id=eq.'+customerId+'&order=note_date.desc,created_at.desc');
+  allNotes=notes;notesIndex[customerId]=notes;return notes;
+}
+
+async function refreshAll(){
+  setSyncStatus('busy','Uppdaterar...');
+  try{
+    await loadAll();
+    const page=document.querySelector('.page.active');
+    if(page){const id=page.id.replace('page-','');if(id==='dashboard')renderDashboard();if(id==='customers')renderCustomers();if(id==='followup')renderFollowup();if(id==='admin')renderAdminPage();}
+    showToast('Uppdaterat');
+  }catch(e){showToast('Uppdatering misslyckades',true);}
+}
+
+function openExportModal(){document.getElementById('export-pw-input').value='';document.getElementById('export-pw-err').style.display='none';document.getElementById('export-modal-bg').classList.add('open');setTimeout(()=>document.getElementById('export-pw-input').focus(),100);}
+function closeExportModal(){document.getElementById('export-modal-bg').classList.remove('open');}
+function confirmExport(){
+  const entered=document.getElementById('export-pw-input').value;
+  if(!exportPassword){showToast('Lösenord ej konfigurerat',true);closeExportModal();return;}
+  if(entered!==exportPassword){document.getElementById('export-pw-err').style.display='block';document.getElementById('export-pw-input').value='';document.getElementById('export-pw-input').focus();return;}
+  closeExportModal();doExport();
+}
+function doExport(){
+  const isFiltered=document.getElementById('page-customers').classList.contains('active')&&lastFiltered.length&&lastFiltered.length<customers.length;
+  const list=isFiltered?lastFiltered:customers;
+  const rows=list.map(c=>({'Företag':c.company,'Kontaktperson':c.contact||'','Telefon':c.phone||'','E-post':c.email||'','Bransch':c.industry||'','Säljare':c.salesperson||'','Temperatur':c.temp,'Status':c.status,'Offert ute':c.has_offer?'Ja':'Nej','I förhandling':c.has_negotiation?'Ja':'Nej','Nästa steg':c.next_step||'','Kreditkontroll':c.credit_check_date||'','Årsprognos (kr)':c.prognos||0,'Aktiv i år':c.active_year?'Ja':'Nej','Senaste kontakt':c.last_contact||'','Nästa kontakt':c.next_contact||'','Förfallen':isOverdue(c)?'Ja':'Nej'}));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:28},{wch:22},{wch:16},{wch:28},{wch:18},{wch:20},{wch:12},{wch:14},{wch:10},{wch:14},{wch:30},{wch:16},{wch:16},{wch:10},{wch:16},{wch:16},{wch:10}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,isFiltered?'Filtrerade kunder':'Kunder');
+  XLSX.writeFile(wb,'TransportCRM_export_'+today()+(isFiltered?'_filtrerat':'')+'.xlsx');
+  showToast('Export klar');
+}
+
+function nav(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const el=document.getElementById('nav-'+page);if(el)el.classList.add('active');
+  document.getElementById('page-'+page).classList.add('active');
+  const titles={dashboard:'Dashboard',customers:'Kunder',followup:'Uppföljning',admin:'Administration',import:'Importera'};
+  document.getElementById('topbar-title').textContent=titles[page]||'';
+  document.getElementById('refresh-btn' in document ? 'refresh-btn' : 'topbar-title').style;
+  if(page==='dashboard')renderDashboard();
+  if(page==='customers'){populateIndFilter();populateSpFilter();renderCustomers();}
+  if(page==='followup'){initFuDates();populateFuSp();renderFollowup();}
+  if(page==='admin')renderAdminPage();
+  if(page==='import'){document.getElementById('import-ind-list').textContent=industries.join(', ');document.getElementById('import-sp-list').textContent=salespersons.join(', ');}
+}
+function goBack(){nav(detailFromPage);}
+
+function navWithFilter(page, filterType, filterValue){
+  // Reset all filters first
+  ['filter-temp','filter-status','filter-industry','filter-salesperson','filter-misc'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.value='';el.classList.remove('has-val');}
+  });
+  if(page==='customers'){
+    if(filterType==='status'&&filterValue){
+      const el=document.getElementById('filter-status');
+      el.value=filterValue;el.classList.add('has-val');
+    } else if(filterType==='misc'&&filterValue){
+      const el=document.getElementById('filter-misc');
+      el.value=filterValue;el.classList.add('has-val');
+    } else if(filterType==='deal'){
+      // No standard filter for deal — navigate and show all, user can see from list
+    }
+    nav('customers');
+    if(filterType==='deal'){
+      // Filter inline after render
+      lastFiltered=customers.filter(c=>c.has_offer||c.has_negotiation);
+      document.getElementById('filter-count').textContent=lastFiltered.length+' av '+customers.length+' kunder';
+      document.getElementById('customer-list').innerHTML=lastFiltered.length?lastFiltered.map(c=>'<tr class="'+(isOverdue(c)?'overdue-row':'')+'" onclick="openDetail(\''+c.id+'\',\'customers\')"><td><strong>'+c.company+'</strong></td><td style="color:var(--text2)">'+(c.salesperson||'<span style="color:var(--text3)">—</span>')+'</td><td>'+(indBadge(c.industry)||'<span style="color:var(--text3)">—</span>')+'</td><td>'+tempBadge(c.temp)+'</td><td '+(isOverdue(c)?'style="color:var(--red-text);font-weight:600;"':'')+'>'+fmtDate(c.next_contact)+'</td><td>'+statusBadge(c)+'</td><td style="color:var(--text2)">'+(c.next_step||'<span style="color:var(--text3)">—</span>')+'</td><td>'+fmtK(c.prognos)+'</td><td>'+(c.active_year?'<span class="badge active-yr">Ja</span>':'<span class="badge inactive">Nej</span>')+'</td></tr>').join(''):'<tr class="empty"><td colspan="9">Inga kunder</td></tr>';
+    }
+  } else if(page==='followup'){
+    nav('followup');
+    if(filterType==='week'){
+      setFuRange(0,7);
+    }
+  }
+}
+
+function renderDashboard(){
+  document.getElementById('stat-active').textContent=customers.filter(c=>c.status==='Kontaktad').length;
+  document.getElementById('stat-deal').textContent=customers.filter(c=>c.has_offer||c.has_negotiation).length;
+  document.getElementById('stat-overdue').textContent=customers.filter(c=>isOverdue(c)).length;
+  const t=today();
+  document.getElementById('stat-week').textContent=customers.filter(c=>c.next_contact&&c.next_contact>=t&&c.next_contact<=addDays(t,6)&&c.status!=='Vilande').length;
+  renderActivityLog();
+  const days=[];for(let i=0;i<7;i++){const d=addDays(t,i);const dt=new Date(d+'T12:00:00');const wd=dt.getDay();days.push({date:d,label:DAYS_SV[wd]+' '+dt.getDate()+' '+MONTHS_SV[dt.getMonth()],isToday:i===0,isWeekend:wd===0||wd===6});}
+  document.getElementById('week-grid').innerHTML=days.map(day=>{const dc=customers.filter(c=>c.next_contact===day.date&&c.status!=='Vilande');return'<div class="day-col"><div class="day-head'+(day.isToday?' today':day.isWeekend?' weekend':'')+'">'+day.label+'</div>'+(dc.length?dc.map(c=>'<div class="day-item" onclick="openDetail(\''+c.id+'\',\'dashboard\')">'+'<div class="di-name">'+c.company+'</div>'+'<div class="di-sub">'+(c.salesperson?c.salesperson.split(' ')[0]:'')+'</div></div>').join(''):'<div class="day-empty">—</div>')+'</div>';}).join('');
+  const ol=customers.filter(c=>isOverdue(c)).sort((a,b)=>a.next_contact.localeCompare(b.next_contact));
+  document.getElementById('dash-overdue').innerHTML=ol.length?ol.map(c=>'<tr class="overdue-row" onclick="openDetail(\''+c.id+'\',\'dashboard\')"><td><strong>'+c.company+'</strong></td><td style="color:var(--text2)">'+(c.salesperson||'—')+'</td><td>'+(indBadge(c.industry)||'—')+'</td><td>'+tempBadge(c.temp)+'</td><td style="color:var(--red-text);font-weight:600;">&#9888; '+fmtDate(c.next_contact)+'</td><td>'+statusBadge(c)+'</td><td style="color:var(--text2)">'+(c.next_step||'—')+'</td><td>'+fmtK(c.prognos)+'</td></tr>').join(''):'<tr class="empty"><td colspan="8">Inga förfallna</td></tr>';
+  const hl=customers.filter(c=>c.temp==='Het'&&!isOverdue(c)&&c.status!=='Vilande');
+  document.getElementById('dash-hot').innerHTML=hl.length?hl.map(c=>'<tr onclick="openDetail(\''+c.id+'\',\'dashboard\')"><td><strong>'+c.company+'</strong></td><td style="color:var(--text2)">'+(c.salesperson||'—')+'</td><td>'+(indBadge(c.industry)||'—')+'</td><td>'+fmtDate(c.next_contact)+'</td><td>'+statusBadge(c)+'</td><td style="color:var(--text2)">'+(c.next_step||'—')+'</td><td>'+fmtK(c.prognos)+'</td></tr>').join(''):'<tr class="empty"><td colspan="7">Inga heta kunder</td></tr>';
+}
+
+function populateIndFilter(){const sel=document.getElementById('filter-industry');const cur=sel.value;sel.innerHTML='<option value="">Alla branscher</option>'+industries.map(i=>'<option value="'+i+'"'+(i===cur?' selected':'')+'>'+i+'</option>').join('');}
+function populateSpFilter(){const sel=document.getElementById('filter-salesperson');const cur=sel.value;sel.innerHTML='<option value="">Alla säljare</option>'+salespersons.map(s=>'<option value="'+s+'"'+(s===cur?' selected':'')+'>'+s+'</option>').join('');}
+function onFC(sel){sel.classList.toggle('has-val',sel.value!=='');renderCustomers();}
+function clearFilters(){['filter-temp','filter-status','filter-industry','filter-salesperson','filter-misc'].forEach(id=>{const el=document.getElementById(id);el.value='';el.classList.remove('has-val');});renderCustomers();}
+
+function sortCustomers(field){
+  if(sortField===field) sortDir*=-1;
+  else{sortField=field;sortDir=1;}
+  // Update header classes
+  document.querySelectorAll('.tbl th.sortable').forEach(th=>{
+    th.classList.remove('sort-asc','sort-desc');
+    if(th.getAttribute('onclick')==="sortCustomers('"+field+"')"){
+      th.classList.add(sortDir===1?'sort-asc':'sort-desc');
+    }
+  });
+  renderCustomers();
+}
+
+function filterCustomers(){
+  const fT=document.getElementById('filter-temp').value,fS=document.getElementById('filter-status').value,fI=document.getElementById('filter-industry').value,fSp=document.getElementById('filter-salesperson').value,fM=document.getElementById('filter-misc').value;
+  let list=customers.filter(c=>{
+    const q=searchQuery?searchQuery.toLowerCase():'';
+    if(q){const basic=c.company.toLowerCase().includes(q)||(c.contact||'').toLowerCase().includes(q)||(c.salesperson||'').toLowerCase().includes(q)||(c.industry||'').toLowerCase().includes(q)||(c.next_step||'').toLowerCase().includes(q);const inNotes=(notesIndex[c.id]||[]).some(n=>n.text&&n.text.toLowerCase().includes(q));if(!basic&&!inNotes)return false;}
+    if(fT&&c.temp!==fT)return false;if(fS&&c.status!==fS)return false;if(fI&&c.industry!==fI)return false;if(fSp&&c.salesperson!==fSp)return false;
+    if(fM==='active_year'&&!c.active_year)return false;if(fM==='overdue'&&!isOverdue(c))return false;return true;
+  });
+  // Sort
+  const tempOrder={'Het':0,'Ljummen':1,'Sval':2};
+  list.sort((a,b)=>{
+    let av,bv;
+    if(sortField==='company'){av=(a.company||'').toLowerCase();bv=(b.company||'').toLowerCase();}
+    else if(sortField==='next_contact'){av=a.next_contact||'9999';bv=b.next_contact||'9999';}
+    else if(sortField==='prognos'){av=a.prognos||0;bv=b.prognos||0;}
+    else if(sortField==='temp'){av=tempOrder[a.temp]??9;bv=tempOrder[b.temp]??9;}
+    else{av=(a[sortField]||'').toString().toLowerCase();bv=(b[sortField]||'').toString().toLowerCase();}
+    if(av<bv)return -1*sortDir;if(av>bv)return 1*sortDir;return 0;
+  });
+  lastFiltered=list;return list;
+}
+function renderCustomers(){
+  const list=filterCustomers();
+  document.getElementById('filter-count').textContent=list.length<customers.length?list.length+' av '+customers.length+' kunder':'';
+  document.getElementById('customer-list').innerHTML=list.length?list.map(c=>'<tr class="'+(isOverdue(c)?'overdue-row':'')+'" onclick="openDetail(\''+c.id+'\',\'customers\')"><td><strong>'+c.company+'</strong></td><td style="color:var(--text2)">'+(c.salesperson||'<span style="color:var(--text3)">—</span>')+'</td><td>'+(indBadge(c.industry)||'<span style="color:var(--text3)">—</span>')+'</td><td>'+tempBadge(c.temp)+'</td><td '+(isOverdue(c)?'style="color:var(--red-text);font-weight:600;"':'')+'>'+fmtDate(c.next_contact)+'</td><td>'+statusBadge(c)+'</td><td style="color:var(--text2)">'+(c.next_step||'<span style="color:var(--text3)">—</span>')+'</td><td>'+fmtK(c.prognos)+'</td><td>'+(c.active_year?'<span class="badge active-yr">Ja</span>':'<span class="badge inactive">Nej</span>')+'</td></tr>').join(''):'<tr class="empty"><td colspan="9">Inga kunder matchar filtret</td></tr>';
+}
+
+let activityShowSystem=false;
+function renderActivityLog(){
+  const el=document.getElementById('activity-log');if(!el)return;
+  let all=[];
+  Object.keys(notesIndex).forEach(cid=>{
+    const cust=customers.find(x=>x.id===cid);
+    if(!cust)return;
+    (notesIndex[cid]||[]).forEach(n=>all.push({...n,_company:cust.company,_custId:cid}));
+  });
+  all.sort((a,b)=>(b.created_at||b.note_date).localeCompare(a.created_at||a.note_date));
+  const filtered=activityShowSystem?all:all.filter(n=>n.type!=='System');
+  const top=filtered.slice(0,15);
+  el.innerHTML='';
+  const toggleBtn=document.createElement('div');
+  toggleBtn.style.cssText='display:flex;justify-content:flex-end;padding:6px 16px 2px;';
+  const tb=document.createElement('button');
+  tb.style.cssText='font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer;';
+  tb.textContent=activityShowSystem?'Dölj systemloggar':'Visa systemloggar';
+  tb.onclick=()=>{activityShowSystem=!activityShowSystem;renderActivityLog();};
+  toggleBtn.appendChild(tb);
+  el.appendChild(toggleBtn);
+  if(!top.length){
+    const empty=document.createElement('div');
+    empty.style.cssText='padding:12px 16px;font-size:13px;color:var(--text3);';
+    empty.textContent='Ingen manuell aktivitet ännu';
+    el.appendChild(empty);
+    return;
+  }
+  top.forEach(n=>{
+    const dotCls=n.type==='System'?'system':n.type==='Nästa steg'?'nextstep':n.type==='Kontakt'?'contact':'note';
+    const label=n.type==='System'?'System':n.type==='Nästa steg'?'Nästa steg':n.type==='Kontakt'?'Kontakt':'Anteckning';
+    const short=n.text.length>60?n.text.substring(0,60)+'...':n.text;
+    const row=document.createElement('div');
+    row.className='activity-item';
+    row.style.cssText='padding:9px 16px;';
+    const dot=document.createElement('div');
+    dot.className='activity-dot '+dotCls;
+    const info=document.createElement('div');
+    info.style.cssText='flex:1;min-width:0;';
+    const nameRow=document.createElement('div');
+    const nameSpan=document.createElement('span');
+    nameSpan.className='activity-company';
+    nameSpan.textContent=n._company;
+    nameSpan.onclick=()=>openDetail(n._custId,'dashboard');
+    const labelSpan=document.createElement('span');
+    labelSpan.style.cssText='font-size:12px;color:var(--text3);';
+    labelSpan.textContent=' — '+label;
+    nameRow.appendChild(nameSpan);
+    nameRow.appendChild(labelSpan);
+    const textRow=document.createElement('div');
+    textRow.style.cssText='font-size:12px;color:var(--text2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    textRow.textContent=short;
+    const dateRow=document.createElement('div');
+    dateRow.className='activity-meta';
+    dateRow.textContent=fmtDate(n.note_date);
+    info.appendChild(nameRow);
+    info.appendChild(textRow);
+    info.appendChild(dateRow);
+    row.appendChild(dot);
+    row.appendChild(info);
+    el.appendChild(row);
+  });
+}
+
+// ── AUTO REFRESH ──────────────────────────────────────────
+async function silentRefresh(){
+  try{
+    const[c,notes]=await Promise.all([
+      dbGet('customers','order=company.asc&select=*'),
+      dbGet('notes','order=note_date.desc,created_at.desc&select=*')
+    ]);
+    customers=c;
+    notesIndex={};
+    notes.forEach(n=>{if(!notesIndex[n.customer_id])notesIndex[n.customer_id]=[];notesIndex[n.customer_id].push(n);});
+    const page=document.querySelector('.page.active');
+    if(page){
+      const id=page.id.replace('page-','');
+      if(id==='dashboard')renderDashboard();
+      if(id==='customers')renderCustomers();
+      if(id==='followup')renderFollowup();
+      // If on detail page, refresh notes silently
+      if(id==='detail'&&currentCustomerId){
+        const fresh=notesIndex[currentCustomerId]||[];
+        allNotes=fresh;renderNotes(fresh);
+      }
+    }
+    setSyncStatus('ok','Synkat '+new Date().toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'}));
+  }catch(e){setSyncStatus('err','Synkfel');}
+}
+function startAutoRefresh(){
+  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer=setInterval(silentRefresh, 30000);
+  setSyncStatus('ok','Synkat');
+}
+
+
+function initFuDates(){if(!document.getElementById('fu-from').value)document.getElementById('fu-from').value=addDays(today(),-30);if(!document.getElementById('fu-to').value)document.getElementById('fu-to').value=addDays(today(),30);}
+function populateFuSp(){const sel=document.getElementById('fu-salesperson');const cur=sel.value;sel.innerHTML='<option value="">Alla säljare</option>'+salespersons.map(s=>'<option value="'+s+'"'+(s===cur?' selected':'')+'>'+s+'</option>').join('');}
+function setFuRange(a,b){const t=today();document.getElementById('fu-from').value=a<0?addDays(t,a):t;document.getElementById('fu-to').value=b<=0?t:addDays(t,b);renderFollowup();}
+function clearFuRange(){document.getElementById('fu-from').value='';document.getElementById('fu-to').value='';renderFollowup();}
+function renderFollowup(){
+  const from=document.getElementById('fu-from').value,to=document.getElementById('fu-to').value,fSp=document.getElementById('fu-salesperson').value;
+  let list=customers.filter(c=>c.status!=='Vilande'&&c.next_contact);
+  if(from)list=list.filter(c=>c.next_contact>=from);if(to)list=list.filter(c=>c.next_contact<=to);if(fSp)list=list.filter(c=>c.salesperson===fSp);
+  list.sort((a,b)=>a.next_contact.localeCompare(b.next_contact));
+  document.getElementById('followup-list').innerHTML=list.length?list.map(c=>'<tr class="'+(isOverdue(c)?'overdue-row':'')+'" onclick="openDetail(\''+c.id+'\',\'followup\')"><td><strong>'+c.company+'</strong></td><td style="color:var(--text2)">'+(c.salesperson||'—')+'</td><td>'+(indBadge(c.industry)||'—')+'</td><td>'+tempBadge(c.temp)+'</td><td '+(isOverdue(c)?'style="color:var(--red-text);font-weight:600;"':'')+'>'+(isOverdue(c)?'&#9888; ':'')+fmtDate(c.next_contact)+'</td><td>'+statusBadge(c)+'</td><td style="color:var(--text2)">'+(c.next_step||'—')+'</td><td>'+fmtDate(c.last_contact)+'</td><td><button class="btn sm" onclick="event.stopPropagation();quickContact(\''+c.id+'\')">Kontaktad</button></td></tr>').join(''):'<tr class="empty"><td colspan="9">Inga uppföljningar i valt intervall</td></tr>';
+}
+async function quickContact(id){
+  const c=customers.find(x=>x.id===id);if(!c)return;
+  const t=today();const next=nextWeekday(t,14);setSyncStatus('busy','Sparar...');
+  try{await dbPatch('customers',{last_contact:t,next_contact:next},'id=eq.'+id);await dbPost('notes',{customer_id:id,type:'System',note_date:t,text:'Kontaktad – nästa kontakt satt till '+next+' (vardagar)'});c.last_contact=t;c.next_contact=next;if(c.status==='Vilande'){c.status='Kontaktad';await dbPatch('customers',{status:'Kontaktad'},'id=eq.'+id);}setSyncStatus('ok','Sparat');showToast('Kontaktad sparad');renderFollowup();}
+  catch(e){setSyncStatus('err','Fel');showToast('Kunde inte spara',true);}
+}
+
+function renderAdminPage(){
+  document.getElementById('sp-admin-list').innerHTML=salespersons.map(s=>'<div class="admin-item"><span style="flex:1;font-size:13px;">'+s+'</span><div class="admin-item-btns"><button class="btn sm danger-outline" onclick="removeSp(\''+s+'\')">Ta bort</button></div></div>').join('');
+  document.getElementById('industry-admin-list').innerHTML=industries.map((ind,i)=>'<div class="admin-item"><input type="text" value="'+ind+'" id="ind-edit-'+i+'" onblur="saveIndustryEdit('+i+',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()"><div class="admin-item-btns"><button class="btn sm danger-outline" onclick="removeIndustry(\''+ind+'\')">Ta bort</button></div></div>').join('');
+  const total=customers.length||1;
+  document.getElementById('sp-stats').innerHTML=salespersons.map(s=>{const cnt=customers.filter(c=>c.salesperson===s).length;return'<div class="bar-row"><span class="bar-label">'+s+'</span><div class="bar-track"><div class="bar-fill" style="width:'+Math.round(cnt/total*100)+'%"></div></div><span class="bar-count">'+cnt+'</span></div>';}).join('');
+  document.getElementById('industry-stats').innerHTML=industries.map(ind=>{const cnt=customers.filter(c=>c.industry===ind).length;return'<div class="bar-row"><span class="bar-label">'+ind+'</span><div class="bar-track"><div class="bar-fill" style="width:'+Math.round(cnt/total*100)+'%"></div></div><span class="bar-count">'+cnt+'</span></div>';}).join('');
+}
+async function saveIndustryEdit(idx,newName){const oldName=industries[idx];newName=newName.trim();if(!newName||newName===oldName)return;if(industries.includes(newName)){showToast('Branschen finns redan',true);renderAdminPage();return;}try{await dbPatch('industries',{name:newName},'name=eq.'+encodeURIComponent(oldName));await dbPatch('customers',{industry:newName},'industry=eq.'+encodeURIComponent(oldName));industries[idx]=newName;customers.forEach(c=>{if(c.industry===oldName)c.industry=newName;});showToast('Bransch uppdaterad');renderAdminPage();populateIndModal();}catch(e){showToast('Kunde inte uppdatera',true);renderAdminPage();}}
+async function addSalesperson(){const inp=document.getElementById('new-sp-input');const val=inp.value.trim();if(!val||salespersons.includes(val)){inp.focus();return;}try{await dbPost('salespersons',{name:val});salespersons.push(val);inp.value='';showToast('Säljare tillagd');renderAdminPage();populateIndModal();}catch(e){showToast('Kunde inte lägga till',true);}}
+async function removeSp(name){if(!confirm('Ta bort säljaren "'+name+'"?'))return;try{await dbDel('salespersons','name=eq.'+encodeURIComponent(name));salespersons=salespersons.filter(s=>s!==name);customers.forEach(c=>{if(c.salesperson===name)c.salesperson='';});showToast('Säljare borttagen');renderAdminPage();populateIndModal();}catch(e){showToast('Kunde inte ta bort',true);}}
+async function addIndustry(){const inp=document.getElementById('new-ind-input');const val=inp.value.trim();if(!val||industries.includes(val)){inp.focus();return;}try{await dbPost('industries',{name:val});industries.push(val);inp.value='';showToast('Bransch tillagd');renderAdminPage();populateIndModal();}catch(e){showToast('Kunde inte lägga till',true);}}
+async function removeIndustry(name){if(!confirm('Ta bort branschen "'+name+'"?'))return;try{await dbDel('industries','name=eq.'+encodeURIComponent(name));industries=industries.filter(i=>i!==name);customers.forEach(c=>{if(c.industry===name)c.industry='';});showToast('Bransch borttagen');renderAdminPage();populateIndModal();}catch(e){showToast('Kunde inte ta bort',true);}}
+
+function renderCreditDisplay(){
+  const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;
+  const el=document.getElementById('credit-display');
+  if(c.credit_check_date){
+    el.innerHTML='<div style="margin-bottom:8px;"><div class="date-pick-row"><input type="date" id="credit-date-input" value="'+c.credit_check_date+'"><button class="cal-btn" onclick="saveCreditDate()" title="Spara">&#10003;</button></div></div><button class="btn sm danger-outline" onclick="clearCreditDate()" style="width:100%;justify-content:center;">&#10006; Radera kreditdatum</button>';
+  }else{
+    el.innerHTML='<div class="credit-no-date">Ingen kreditkontroll registrerad</div><div class="date-pick-row"><input type="date" id="credit-date-input" value="'+today()+'"><button class="cal-btn" onclick="saveCreditDate()" title="Registrera">&#10003;</button></div>';
+  }
+}
+async function saveCreditDate(){const d=document.getElementById('credit-date-input').value;if(!d)return;const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await dbPatch('customers',{credit_check_date:d},'id=eq.'+c.id);c.credit_check_date=d;await dbPost('notes',{customer_id:c.id,type:'System',note_date:today(),text:'Kreditkontroll registrerad: '+d});showToast('Kreditdatum sparat');renderCreditDisplay();const notes=await loadNotes(c.id);renderNotes(notes);}catch(e){showToast('Kunde inte spara',true);}}
+async function clearCreditDate(){if(!confirm('Radera kreditkontrolldatum?'))return;const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await dbPatch('customers',{credit_check_date:null},'id=eq.'+c.id);c.credit_check_date=null;await dbPost('notes',{customer_id:c.id,type:'System',note_date:today(),text:'Kreditkontrolldatum raderat'});showToast('Kreditdatum raderat');renderCreditDisplay();const notes=await loadNotes(c.id);renderNotes(notes);}catch(e){showToast('Kunde inte radera',true);}}
+
+function setNoteFilter(f){noteFilter=f;['all','manual','system','both'].forEach(k=>{const el=document.getElementById('nf-'+k);if(el)el.classList.remove('active');});const activeId=f==='all'?'nf-both':f==='manual'?'nf-all':'nf-system';const activeEl=document.getElementById(activeId);if(activeEl)activeEl.classList.add('active');renderNotes(allNotes);}
+
+function renderNotes(notes){
+  let filtered=noteFilter==='system'?notes.filter(n=>n.type==='System'):noteFilter==='all'?notes:notes.filter(n=>n.type!=='System');
+  if(!filtered.length){
+    document.getElementById('notes-list').innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0;">Inga anteckningar.'+(noteFilter!=='all'?' Byt filter för att se fler.':'')+'</div>';
+    return;
+  }
+
+  // Group notes that were saved at the same time (same note_date + within 60s of each other)
+  // We pair a "Kontakt" or "Anteckning" with a "Nästa steg" that has the same note_date
+  const groups=[];
+  const used=new Set();
+
+  for(let i=0;i<filtered.length;i++){
+    if(used.has(i)) continue;
+    const n=filtered[i];
+    // Look for a companion Nästa steg or main note on the same date
+    if(n.type==='Nästa steg'){
+      // Find a matching main note on the same date that hasn't been used
+      const partnerIdx=filtered.findIndex((m,j)=>!used.has(j)&&j!==i&&m.note_date===n.note_date&&(m.type==='Kontakt'||m.type==='Anteckning'));
+      if(partnerIdx!==-1){
+        used.add(i);used.add(partnerIdx);
+        groups.push({main:filtered[partnerIdx],nextstep:n});
+      } else {
+        used.add(i);groups.push({main:n,nextstep:null});
+      }
+    } else if(n.type==='Kontakt'||n.type==='Anteckning'){
+      // Look for a Nästa steg companion on same date
+      const partnerIdx=filtered.findIndex((m,j)=>!used.has(j)&&j!==i&&m.note_date===n.note_date&&m.type==='Nästa steg');
+      if(partnerIdx!==-1){
+        used.add(i);used.add(partnerIdx);
+        groups.push({main:n,nextstep:filtered[partnerIdx]});
+      } else {
+        used.add(i);groups.push({main:n,nextstep:null});
+      }
+    } else {
+      used.add(i);groups.push({main:n,nextstep:null});
+    }
+  }
+
+  document.getElementById('notes-list').innerHTML=groups.map(g=>{
+    const n=g.main;
+    const ns=g.nextstep;
+    const isSystem=n.type==='System';
+    const isNextStep=n.type==='Nästa steg';
+    const isContact=n.type==='Kontakt';
+    const cls=isSystem?'n-system':isNextStep?'n-nextstep':isContact?'n-contact':'n-note';
+    const pillCls=isSystem?'system':isNextStep?'nextstep':isContact?'contact':'manual';
+    const pillLabel=isSystem?'System':isNextStep?'Nästa steg':isContact?'Kontakt':'Anteckning';
+
+    let html='<div class="note '+cls+'" id="note-card-'+(g.main.id||Math.random())+'">';
+    html+='<div class="note-meta"><span class="note-type-pill '+pillCls+'">'+pillLabel+'</span><span>'+fmtDate(n.note_date)+'</span></div>';
+    html+='<div class="note-text" id="note-text-'+n.id+'">'+n.text+'</div>';
+
+    // If paired with a Nästa steg, show it inside the same card
+    if(ns){
+      html+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.07);">';
+      html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span class="note-type-pill nextstep">Nästa steg</span></div>';
+      html+='<div class="note-text" style="color:var(--purple-text);" id="note-text-'+ns.id+'">'+ns.text+'</div>';
+      html+='</div>';
+    }
+
+    // Edit/delete buttons — only for non-System notes
+    if(!isSystem){
+      html+='<div class="note-actions-row">';
+      html+='<button class="note-edit-btn" onclick="startEditNote(\''+n.id+'\')">Redigera</button>';
+      html+='<button class="note-del-btn" onclick="deleteNote(\''+n.id+'\')">Radera</button>';
+      html+='</div>';
+    }
+
+    html+='</div>';
+    return html;
+  }).join('');
+}
+
+async function openDetail(id,fromPage){
+  currentCustomerId=id;detailFromPage=fromPage||'customers';
+  const c=customers.find(x=>x.id===id);if(!c)return;
+  document.getElementById('d-company').textContent=c.company;
+  document.getElementById('d-contact').textContent=c.contact||'—';
+  document.getElementById('d-prognos').textContent=fmtFull(c.prognos);
+  document.getElementById('d-salesperson').textContent=c.salesperson||'—';
+  document.getElementById('d-phone').textContent=c.phone||'—';
+  document.getElementById('d-email').textContent=c.email||'—';
+  document.getElementById('d-last').textContent=fmtDate(c.last_contact);
+  const dn=document.getElementById('d-next');dn.textContent=(isOverdue(c)?'⚠ ':'')+fmtDate(c.next_contact);dn.style.color=isOverdue(c)?'var(--red-text)':'';
+  document.getElementById('d-manual-date').value=c.next_contact||'';
+  document.getElementById('d-temp-badge').innerHTML=tempBadge(c.temp);
+  document.getElementById('d-ind-badge').innerHTML=c.industry?indBadge(c.industry):'<span style="font-size:12px;color:var(--text3)">Ingen bransch vald</span>';
+  document.getElementById('d-badges').innerHTML=[statusBadge(c),c.active_year?'<span class="badge active-yr">Aktiv i år</span>':'',isOverdue(c)?'<span class="badge overdue">Förfallen</span>':''].filter(Boolean).join('');
+  document.getElementById('d-flag-badges').innerHTML=dealBadges(c);
+  document.getElementById('d-year-toggle').classList.toggle('on',c.active_year);
+  document.querySelectorAll('#d-temp-row .temp-opt').forEach(o=>{o.className='temp-opt';if(o.textContent===c.temp)o.classList.add(c.temp==='Het'?'sel-hot':c.temp==='Ljummen'?'sel-warm':'sel-cold');});
+  document.getElementById('flag-offer').className='flag-box'+(c.has_offer?' checked-offer':'');
+  document.getElementById('flag-negotiation').className='flag-box'+(c.has_negotiation?' checked-negotiation':'');
+  document.getElementById('fc-offer').textContent=c.has_offer?'✓':'';
+  document.getElementById('fc-negotiation').textContent=c.has_negotiation?'✓':'';
+  document.getElementById('d-ind-chips').innerHTML=[...industries,''].map(ind=>'<div class="ind-chip'+(c.industry===ind?' active':'')+'" onclick="setIndustry(\''+ind+'\')">'+( ind||'Ingen')+'</div>').join('');
+  document.getElementById('d-sp-chips').innerHTML=[...salespersons,''].map(sp=>'<div class="sp-chip'+(c.salesperson===sp?' active':'')+'" onclick="setSalesperson(\''+sp+'\')">'+( sp||'Ingen')+'</div>').join('');
+  document.getElementById('note-text').value='';document.getElementById('nextstep-text').value='';
+  noteFilter='manual';setNoteFilter('manual');
+  renderCreditDisplay();
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-detail').classList.add('active');
+  document.getElementById('topbar-title').textContent=c.company;
+  document.getElementById('notes-list').innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0;">Hämtar anteckningar...</div>';
+  try{const notes=await loadNotes(id);renderNotes(notes);}
+  catch(e){document.getElementById('notes-list').innerHTML='<div style="color:var(--red-text);font-size:13px;">Kunde inte hämta anteckningar</div>';}
+}
+
+async function patchCustomer(id,data){setSyncStatus('busy','Sparar...');try{await dbPatch('customers',data,'id=eq.'+id);const c=customers.find(x=>x.id===id);if(c)Object.assign(c,data);setSyncStatus('ok','Sparat');showToast('Sparat');}catch(e){setSyncStatus('err','Fel');showToast('Kunde inte spara: '+e.message,true);throw e;}}
+async function markContacted(){
+  const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;
+  const noteText=document.getElementById('note-text').value.trim();const nextStepText=document.getElementById('nextstep-text').value.trim();
+  const t=today();const next=nextWeekday(t,14);setSyncStatus('busy','Sparar...');
+  try{const newStatus=c.status==='Vilande'?'Kontaktad':c.status;const upd={last_contact:t,next_contact:next,status:newStatus};if(nextStepText)upd.next_step=nextStepText;await patchCustomer(c.id,upd);if(noteText)await dbPost('notes',{customer_id:c.id,type:'Kontakt',note_date:t,text:noteText});if(nextStepText)await dbPost('notes',{customer_id:c.id,type:'Nästa steg',note_date:t,text:nextStepText});await dbPost('notes',{customer_id:c.id,type:'System',note_date:t,text:'Kontaktad – nästa kontakt automatiskt satt till '+next+' (vardagar)'});document.getElementById('note-text').value='';document.getElementById('nextstep-text').value='';document.getElementById('d-last').textContent=fmtDate(t);document.getElementById('d-next').textContent=fmtDate(next);document.getElementById('d-next').style.color='';document.getElementById('d-manual-date').value=next;const notes=await loadNotes(c.id);renderNotes(notes);}catch(e){}
+}
+async function markSleeping(){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await patchCustomer(c.id,{status:'Vilande',next_contact:null});await dbPost('notes',{customer_id:c.id,type:'System',note_date:today(),text:'Kund satt som vilande'});document.getElementById('d-next').textContent='—';document.getElementById('d-badges').innerHTML=[statusBadge(c),c.active_year?'<span class="badge active-yr">Aktiv i år</span>':''].filter(Boolean).join('');const notes=await loadNotes(c.id);renderNotes(notes);}catch(e){}}
+function startEditNote(noteId){
+  const textEl=document.getElementById('note-text-'+noteId);
+  if(!textEl)return;
+  const currentText=textEl.textContent;
+  const parent=textEl.parentElement;
+  const ta=document.createElement('textarea');
+  ta.className='note-edit-area';
+  ta.value=currentText;
+  ta.id='note-edit-area-'+noteId;
+  textEl.replaceWith(ta);
+  ta.focus();
+  const actionsRow=parent.querySelector('.note-actions-row');
+  if(actionsRow){
+    const saveBtn=document.createElement('button');
+    saveBtn.className='note-edit-btn';
+    saveBtn.textContent='Spara';
+    saveBtn.style.borderColor='var(--teal)';
+    saveBtn.style.color='var(--teal-text)';
+    saveBtn.onclick=()=>saveEditNote(noteId);
+    const cancelBtn=document.createElement('button');
+    cancelBtn.className='note-del-btn';
+    cancelBtn.textContent='Avbryt';
+    cancelBtn.onclick=()=>renderNotes(allNotes);
+    actionsRow.innerHTML='';
+    actionsRow.appendChild(saveBtn);
+    actionsRow.appendChild(cancelBtn);
+  }
+}
+
+async function saveEditNote(noteId){
+  const ta=document.getElementById('note-edit-area-'+noteId);
+  if(!ta)return;
+  const newText=ta.value.trim();
+  if(!newText){showToast('Anteckning kan inte vara tom',true);return;}
+  setSyncStatus('busy','Sparar...');
+  try{
+    await dbPatch('notes',{text:newText},'id=eq.'+noteId);
+    // Update in cache
+    Object.keys(notesIndex).forEach(cid=>{
+      const n=notesIndex[cid]?.find(x=>x.id===noteId);
+      if(n)n.text=newText;
+    });
+    const idx=allNotes.findIndex(x=>x.id===noteId);
+    if(idx!==-1)allNotes[idx].text=newText;
+    setSyncStatus('ok','Sparat');showToast('Anteckning uppdaterad');
+    renderNotes(allNotes);
+  }catch(e){setSyncStatus('err','Fel');showToast('Kunde inte spara',true);}
+}
+
+function cancelEditNote(noteId,originalText){
+  const ta=document.getElementById('note-edit-area-'+noteId);
+  if(!ta)return;
+  const textEl=document.createElement('div');
+  textEl.className='note-text';
+  textEl.id='note-text-'+noteId;
+  textEl.textContent=originalText;
+  ta.replaceWith(textEl);
+  // Restore buttons
+  renderNotes(allNotes);
+}
+
+async function deleteNote(noteId){
+  if(!confirm('Radera anteckningen? Detta kan inte ångras.'))return;
+  setSyncStatus('busy','Raderar...');
+  try{
+    await dbDel('notes','id=eq.'+noteId);
+    // Remove from cache
+    Object.keys(notesIndex).forEach(cid=>{
+      notesIndex[cid]=notesIndex[cid]?.filter(x=>x.id!==noteId);
+    });
+    allNotes=allNotes.filter(x=>x.id!==noteId);
+    setSyncStatus('ok','Raderat');showToast('Anteckning raderad');
+    renderNotes(allNotes);
+  }catch(e){setSyncStatus('err','Fel');showToast('Kunde inte radera',true);}
+}
+
+async function saveNote(){  const noteText=document.getElementById('note-text').value.trim();const nextStepText=document.getElementById('nextstep-text').value.trim();
+  if(!noteText&&!nextStepText){showToast('Skriv en anteckning eller nästa steg',true);return;}
+  setSyncStatus('busy','Sparar...');
+  try{const t=today();if(noteText)await dbPost('notes',{customer_id:currentCustomerId,type:'Anteckning',note_date:t,text:noteText});if(nextStepText){await dbPost('notes',{customer_id:currentCustomerId,type:'Nästa steg',note_date:t,text:nextStepText});await patchCustomer(currentCustomerId,{next_step:nextStepText});}document.getElementById('note-text').value='';document.getElementById('nextstep-text').value='';setSyncStatus('ok','Sparat');showToast('Sparat');const notes=await loadNotes(currentCustomerId);renderNotes(notes);}catch(e){setSyncStatus('err','Fel');showToast('Kunde inte spara',true);}
+}
+async function setManualDate(){const d=document.getElementById('d-manual-date').value;if(!d)return;const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await patchCustomer(c.id,{next_contact:d});await dbPost('notes',{customer_id:c.id,type:'System',note_date:today(),text:'Nästa kontaktdatum manuellt satt till '+d});document.getElementById('d-next').textContent=fmtDate(d);document.getElementById('d-next').style.color='';const notes=await loadNotes(c.id);renderNotes(notes);}catch(e){}}
+async function toggleFlag(field){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;c[field]=!c[field];let ns=c.status;if(c.has_negotiation)ns='Förhandling';else if(c.has_offer)ns='Offert ute';else if(c.status==='Förhandling'||c.status==='Offert ute')ns='Kontaktad';c.status=ns;try{await patchCustomer(c.id,{[field]:c[field],status:ns});document.getElementById('flag-offer').className='flag-box'+(c.has_offer?' checked-offer':'');document.getElementById('flag-negotiation').className='flag-box'+(c.has_negotiation?' checked-negotiation':'');document.getElementById('fc-offer').textContent=c.has_offer?'✓':'';document.getElementById('fc-negotiation').textContent=c.has_negotiation?'✓':'';document.getElementById('d-flag-badges').innerHTML=dealBadges(c);document.getElementById('d-badges').innerHTML=[statusBadge(c),c.active_year?'<span class="badge active-yr">Aktiv i år</span>':'',isOverdue(c)?'<span class="badge overdue">Förfallen</span>':''].filter(Boolean).join('');}catch(e){}}
+async function setTemp(t){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await patchCustomer(c.id,{temp:t});document.getElementById('d-temp-badge').innerHTML=tempBadge(t);document.querySelectorAll('#d-temp-row .temp-opt').forEach(o=>{o.className='temp-opt';if(o.textContent===t)o.classList.add(t==='Het'?'sel-hot':t==='Ljummen'?'sel-warm':'sel-cold');});}catch(e){}}
+async function setIndustry(ind){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await patchCustomer(c.id,{industry:ind||null});document.getElementById('d-ind-badge').innerHTML=ind?indBadge(ind):'<span style="font-size:12px;color:var(--text3)">Ingen bransch vald</span>';document.getElementById('d-ind-chips').innerHTML=[...industries,''].map(i=>'<div class="ind-chip'+(c.industry===i?' active':'')+'" onclick="setIndustry(\''+i+'\')">'+( i||'Ingen')+'</div>').join('');}catch(e){}}
+async function setSalesperson(sp){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await patchCustomer(c.id,{salesperson:sp||null});document.getElementById('d-salesperson').textContent=c.salesperson||'—';document.getElementById('d-sp-chips').innerHTML=[...salespersons,''].map(s=>'<div class="sp-chip'+(c.salesperson===s?' active':'')+'" onclick="setSalesperson(\''+s+'\')">'+( s||'Ingen')+'</div>').join('');}catch(e){}}
+async function toggleYear(){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await patchCustomer(c.id,{active_year:!c.active_year});document.getElementById('d-year-toggle').classList.toggle('on',c.active_year);document.getElementById('d-badges').innerHTML=[statusBadge(c),c.active_year?'<span class="badge active-yr">Aktiv i år</span>':'',isOverdue(c)?'<span class="badge overdue">Förfallen</span>':''].filter(Boolean).join('');}catch(e){}}
+
+function populateIndModal(){const si=document.getElementById('f-industry');const ci=si.value;si.innerHTML='<option value="">— Välj bransch —</option>'+industries.map(i=>'<option value="'+i+'"'+(i===ci?' selected':'')+'>'+i+'</option>').join('');const ss=document.getElementById('f-salesperson');const cs=ss.value;ss.innerHTML='<option value="">— Välj säljare —</option>'+salespersons.map(s=>'<option value="'+s+'"'+(s===cs?' selected':'')+'>'+s+'</option>').join('');}
+function openNewCustomer(){editingId=null;document.getElementById('modal-title').textContent='Ny kund';['f-company','f-contact','f-phone','f-email','f-prognos','f-next'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-temp').value='Sval';document.getElementById('modal-year-tog').classList.remove('on');document.querySelectorAll('#modal-temp-row .temp-opt').forEach(o=>o.className='temp-opt');document.querySelector('#modal-temp-row .temp-opt:last-child').classList.add('sel-cold');populateIndModal();document.getElementById('f-industry').value='';document.getElementById('f-salesperson').value='';document.getElementById('modal-customer').classList.add('open');}
+function editCurrent(){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;editingId=c.id;document.getElementById('modal-title').textContent='Redigera kund';document.getElementById('f-company').value=c.company;document.getElementById('f-contact').value=c.contact||'';document.getElementById('f-phone').value=c.phone||'';document.getElementById('f-email').value=c.email||'';document.getElementById('f-prognos').value=c.prognos||'';document.getElementById('f-next').value=c.next_contact||'';document.getElementById('f-temp').value=c.temp;document.getElementById('modal-year-tog').classList.toggle('on',c.active_year);document.querySelectorAll('#modal-temp-row .temp-opt').forEach(o=>{o.className='temp-opt';if(o.textContent===c.temp)o.classList.add(c.temp==='Het'?'sel-hot':c.temp==='Ljummen'?'sel-warm':'sel-cold');});populateIndModal();document.getElementById('f-industry').value=c.industry||'';document.getElementById('f-salesperson').value=c.salesperson||'';document.getElementById('modal-customer').classList.add('open');}
+function mSelTemp(el,val){document.querySelectorAll('#modal-temp-row .temp-opt').forEach(o=>o.className='temp-opt');el.classList.add(val==='Het'?'sel-hot':val==='Ljummen'?'sel-warm':'sel-cold');document.getElementById('f-temp').value=val;}
+function closeModal(){document.getElementById('modal-customer').classList.remove('open');}
+async function saveCustomer(){
+  const company=document.getElementById('f-company').value.trim();if(!company){alert('Företagsnamn krävs');return;}
+  const btn=document.getElementById('modal-save-btn');btn.disabled=true;btn.textContent='Sparar...';
+  const data={company,contact:document.getElementById('f-contact').value.trim()||null,phone:document.getElementById('f-phone').value.trim()||null,email:document.getElementById('f-email').value.trim()||null,prognos:parseInt(document.getElementById('f-prognos').value)||0,status:'Kontaktad',temp:document.getElementById('f-temp').value||'Sval',industry:document.getElementById('f-industry').value||null,salesperson:document.getElementById('f-salesperson').value||null,next_contact:document.getElementById('f-next').value||null,active_year:document.getElementById('modal-year-tog').classList.contains('on'),has_offer:false,has_negotiation:false,next_step:null};
+  try{if(editingId){await dbPatch('customers',data,'id=eq.'+editingId);const c=customers.find(x=>x.id===editingId);if(c)Object.assign(c,data);showToast('Kund uppdaterad');closeModal();openDetail(editingId,detailFromPage);}else{const result=await dbPost('customers',data);if(result&&result[0])customers.push(result[0]);await dbPost('notes',{customer_id:result[0].id,type:'System',note_date:today(),text:'Kund skapad'});showToast('Kund skapad');closeModal();nav('customers');}}catch(e){showToast('Kunde inte spara: '+e.message,true);}
+  finally{btn.disabled=false;btn.textContent='Spara kund';}
+}
+
+async function handleImport(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    // Parse CSV properly handling quoted fields
+    function parseCSVLine(line){
+      const result=[];let cur='';let inQ=false;
+      for(let i=0;i<line.length;i++){
+        const ch=line[i];
+        if(ch==='"'&&!inQ){inQ=true;}
+        else if(ch==='"'&&inQ&&line[i+1]==='"'){cur+='"';i++;}
+        else if(ch==='"'&&inQ){inQ=false;}
+        else if(ch===','&&!inQ){result.push(cur.trim());cur='';}
+        else{cur+=ch;}
+      }
+      result.push(cur.trim());
+      return result;
+    }
+
+    const text=e.target.result;
+    const lines=text.split('\n').filter(l=>l.trim());
+    if(lines.length<2){showToast('Filen verkar tom',true);return;}
+
+    let added=0,skipped=0,notesSaved=0;
+    const newIndustries=[];
+
+    setLoading(true,'Förbereder import...');
+
+    // Collect unique industries from file that don't exist yet
+    for(const line of lines.slice(1)){
+      const p=parseCSVLine(line);
+      if(!p[0]) continue;
+      const bransch=(p[6]||'').trim();
+      if(bransch&&!industries.includes(bransch)&&!newIndustries.includes(bransch)){
+        newIndustries.push(bransch);
+      }
+    }
+
+    // Add missing industries
+    if(newIndustries.length){
+      setLoading(true,`Lägger till ${newIndustries.length} nya branscher...`);
+      for(const ind of newIndustries){
+        try{
+          await dbPost('industries',{name:ind});
+          industries.push(ind);
+        }catch(e){}
+      }
+    }
+
+    // Import customers
+    const total=lines.slice(1).filter(l=>l.trim()).length;
+    let processed=0;
+
+    for(const line of lines.slice(1)){
+      const p=parseCSVLine(line);
+      if(!p[0]) continue;
+      processed++;
+      setLoading(true,`Importerar kund ${processed} av ${total}...`);
+
+      // col: 0=Företag 1=Kontakt 2=Tel 3=Mail 4=Prognos 5=Temp 6=Bransch 7=Säljare 8=Kommentar 9=Källa 10=Senast_kontakt
+      const company=(p[0]||'').trim();if(!company) continue;
+      const contact=(p[1]||'').trim()||null;
+      const phone=(p[2]||'').trim()||null;
+      const email=(p[3]||'').trim()||null;
+      const prognos=parseInt(p[4])||0;
+      const temp=['Het','Ljummen','Sval'].includes(p[5])?p[5]:'Sval';
+      const ind=(p[6]||'').trim();
+      const industry=ind&&industries.includes(ind)?ind:null;
+      const spName=(p[7]||'').trim();
+      const salesperson=spName&&salespersons.includes(spName)?spName:null;
+      const comment=(p[8]||'').trim();
+      const kalla=(p[9]||'').trim();
+      const lastContact=(p[10]||'').trim();
+
+      // Determine active_year — befintliga kunder = aktiv
+      const activeYear=kalla==='Befintlig kund';
+
+      try{
+        const result=await dbPost('customers',{
+          company,contact,phone,email,prognos,temp,
+          industry,salesperson,
+          status:'Kontaktad',
+          active_year:activeYear,
+          has_offer:false,has_negotiation:false,next_step:null,
+          last_contact:lastContact||null
+        });
+        if(result&&result[0]){
+          const newCust=result[0];
+          customers.push(newCust);
+          added++;
+
+          // Save comment as note
+          if(comment){
+            try{
+              await dbPost('notes',{
+                customer_id:newCust.id,
+                type:'Anteckning',
+                note_date:lastContact||today(),
+                text:(kalla?'['+kalla+'] ':'')+comment
+              });
+              notesSaved++;
+              notesIndex[newCust.id]=[{
+                id:'tmp',customer_id:newCust.id,type:'Anteckning',
+                note_date:lastContact||today(),
+                text:(kalla?'['+kalla+'] ':'')+comment
+              }];
+            }catch(e){}
+          }
+          // System note for import
+          try{
+            await dbPost('notes',{
+              customer_id:newCust.id,type:'System',
+              note_date:today(),
+              text:'Importerad från Excel'+(kalla?' ('+kalla+')':'')
+            });
+          }catch(e){}
+        }
+      }catch(e){skipped++;}
+    }
+
+    setLoading(false);
+    const msg=`✓ ${added} kunder importerade, ${notesSaved} anteckningar sparade${skipped?' ('+skipped+' hoppades över)':''}${newIndustries.length?' · '+newIndustries.length+' nya branscher tillagda':''}`;
+    document.getElementById('import-msg').textContent=msg;
+    showToast(added+' kunder importerade');
+    input.value='';
+  };
+  reader.readAsText(file,'UTF-8');
+}
+function downloadTemplate(){const csv='Företag,Kontaktperson,Telefon,E-post,Prognos,Temperatur,Bransch,Säljare,Kommentar,Källa,Senast_kontakt\nExempel AB,Anna Svensson,070-000 00 00,anna@exempel.se,500000,Ljummen,Åkeri,Johan Falk,Bra kontakt sedan länge,Befintlig kund,2026-04-15\nProspekt AB,Erik Eriksson,070-111 11 11,erik@prospekt.se,,Sval,Event,Johan Falk,Mailat 13/2 - ingen svar än,Prospekt,2026-02-13\n';const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='kundmall.csv';a.click();}
+
+(async()=>{
+  // Set logo
+  const LOGO_B64='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';
+  document.getElementById('sidebar-logo-img').src='data:image/jpeg;base64,'+LOGO_B64;
+  setLoading(true,'Ansluter till databasen...');
+  try{await loadAll();setLoading(false);nav('dashboard');startAutoRefresh();}
+  catch(e){document.getElementById('loading-text').textContent='Kunde inte ansluta. Kontrollera internetanslutningen och ladda om sidan.';}
+})();
+</script>
+</body>
+</html>
