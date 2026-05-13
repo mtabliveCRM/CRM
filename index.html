@@ -1593,16 +1593,19 @@ async function setManualDate(){const d=document.getElementById('d-manual-date').
 async function toggleFlag(field){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;c[field]=!c[field];let ns=c.status;if(c.has_negotiation)ns='Förhandling';else if(c.has_offer)ns='Offert ute';else if(c.status==='Förhandling'||c.status==='Offert ute')ns='Kontaktad';c.status=ns;try{await patchCustomer(c.id,{[field]:c[field],status:ns});document.getElementById('flag-offer').className='flag-box'+(c.has_offer?' checked-offer':'');document.getElementById('flag-negotiation').className='flag-box'+(c.has_negotiation?' checked-negotiation':'');document.getElementById('fc-offer').textContent=c.has_offer?'✓':'';document.getElementById('fc-negotiation').textContent=c.has_negotiation?'✓':'';document.getElementById('d-flag-badges').innerHTML=dealBadges(c);document.getElementById('d-badges').innerHTML=[statusBadge(c),c.active_year?'<span class="badge active-yr">Aktiv i år</span>':'',isOverdue(c)?'<span class="badge overdue">Förfallen</span>':''].filter(Boolean).join('');}catch(e){}}
 async function setTemp(t){
   const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;
-  // Toggle off if already selected
-  const newTemp=c.temp===t?null:t;
+  // Toggle off if clicking the already-selected temp
+  const currentTemp=c.temp||'';
+  const newTemp=currentTemp===t?'':t;
   try{
-    await patchCustomer(c.id,{temp:newTemp||''});
+    await dbPatch('customers',{temp:newTemp},'id=eq.'+c.id);
+    c.temp=newTemp;
+    setSyncStatus('ok','Sparat');showToast('Sparat');
     document.getElementById('d-temp-badge').innerHTML=newTemp?tempBadge(newTemp):'<span style="font-size:12px;color:var(--text3)">Ingen temperatur vald</span>';
     document.querySelectorAll('#d-temp-row .temp-opt').forEach(o=>{
       o.className='temp-opt';
       if(newTemp&&o.textContent===newTemp) o.classList.add(newTemp==='Het'?'sel-hot':newTemp==='Ljummen'?'sel-warm':'sel-cold');
     });
-  }catch(e){}
+  }catch(e){showToast('Kunde inte spara',true);}
 }
 async function setIndustry(ind){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await patchCustomer(c.id,{industry:ind||null});document.getElementById('d-ind-badge').innerHTML=ind?indBadge(ind):'<span style="font-size:12px;color:var(--text3)">Ingen bransch vald</span>';document.getElementById('d-ind-chips').innerHTML=[...industries,''].map(i=>'<div class="ind-chip'+(c.industry===i?' active':'')+'" onclick="setIndustry(\''+i+'\')">'+( i||'Ingen')+'</div>').join('');}catch(e){}}
 async function setSalesperson(sp){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await patchCustomer(c.id,{salesperson:sp||null});document.getElementById('d-salesperson').textContent=c.salesperson||'—';document.getElementById('d-sp-chips').innerHTML=[...salespersons,''].map(s=>'<div class="sp-chip'+(c.salesperson===s?' active':'')+'" onclick="setSalesperson(\''+s+'\')">'+( s||'Ingen')+'</div>').join('');}catch(e){}}
