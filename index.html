@@ -403,6 +403,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
       <div class="nav-item" id="nav-customers" onclick="nav('customers')">&#9826; Kunder</div>
       <div class="nav-item" id="nav-followup" onclick="nav('followup')">&#9719; Uppföljning</div>
       <div class="nav-item" id="nav-admin" onclick="nav('admin')">&#9881; Administration</div>
+      <div class="nav-item" id="nav-stats" onclick="nav('stats')">&#9741; Statistik</div>
       <div class="nav-item" id="nav-import" onclick="nav('import')">&#8615; Importera</div>
     </div>
     <div class="sidebar-footer">
@@ -518,6 +519,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
         </div>
       </div>
 
+
+      <!-- STATISTICS -->
+      <div class="page" id="page-stats">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div class="card">
+            <h3>&#128200; Prognos per säljare</h3>
+            <div id="stats-prognos" style="margin-top:8px;"></div>
+          </div>
+          <div class="card">
+            <h3>&#9741; Pipeline per säljare</h3>
+            <div id="stats-pipeline" style="margin-top:8px;"></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div class="card">
+            <h3>&#128222; Kontakter senaste 30 dagarna</h3>
+            <div id="stats-contacts" style="margin-top:8px;"></div>
+          </div>
+          <div class="card">
+            <h3>&#127777; Kunder per temperatur</h3>
+            <div id="stats-temp" style="margin-top:8px;"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>&#9881; Aktivitet per säljare (senaste 30 dagar)</h3>
+          <div id="stats-activity" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
       <!-- ADMIN -->
       <div class="page" id="page-admin">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
@@ -613,12 +643,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
             <div class="card"><h3>Säljare</h3><div id="d-sp-chips"></div></div>
             <div class="card"><h3>Bransch</h3><div id="d-ind-chips"></div></div>
             <div class="card">
-              <button class="btn full" onclick="editCurrent()">Redigera kunduppgifter</button>
-              <div style="margin-top:8px;">
-                <button class="btn full" id="ai-analyze-btn" onclick="analyzeCustomer()" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-color:#534AB7;color:#afa9ec;font-weight:500;">
-                  &#10024; AI-analys av kund
-                </button>
-              </div>
+              <button class="btn full" onclick="editCurrent()" style="margin-bottom:8px;">Redigera kunduppgifter</button>
+              <button class="btn full" id="ai-analyze-btn" onclick="analyzeCustomer()" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-color:#534AB7;color:#afa9ec;font-weight:500;margin-bottom:8px;">&#10024; AI-analys av kund</button>
+              <button class="btn full danger-outline" onclick="deleteCurrentCustomer()">&#128465; Radera kund</button>
             </div>
           </div>
           <div class="card" style="display:flex;flex-direction:column;min-height:560px;">
@@ -663,9 +690,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
           <div class="temp-row" id="modal-temp-row">
             <div class="temp-opt" onclick="mSelTemp(this,'Het')">Het</div>
             <div class="temp-opt" onclick="mSelTemp(this,'Ljummen')">Ljummen</div>
-            <div class="temp-opt sel-cold" onclick="mSelTemp(this,'Sval')">Sval</div>
+            <div class="temp-opt" onclick="mSelTemp(this,'Sval')">Sval</div>
           </div>
-          <input type="hidden" id="f-temp" value="Sval">
+          <input type="hidden" id="f-temp" value="">
         </div>
         <div class="form-group full">
           <div class="toggle-wrap"><span style="font-size:13px;color:var(--text2);">Aktiv under året</span><div class="toggle" id="modal-year-tog" onclick="this.classList.toggle('on')"></div></div>
@@ -725,19 +752,38 @@ async function doLogout(){
 
 function onLoginSuccess(){
   document.getElementById('login-screen').classList.add('hidden');
-  // Show user info in sidebar
   const email=currentUser.email||'';
   const initials=email.substring(0,2).toUpperCase();
   document.getElementById('user-avatar').textContent=initials;
   document.getElementById('user-email').textContent=email;
-  // Boot the app
   bootApp();
+}
+
+function applyDefaultSalespersonFilter(){
+  // Match logged-in user email to a salesperson name
+  const email=currentUser?currentUser.email||'':'';
+  const matched=salespersons.find(s=>{
+    const namePart=s.split(' ')[0].toLowerCase();
+    return email.toLowerCase().includes(namePart);
+  });
+  if(matched){
+    const sel=document.getElementById('filter-salesperson');
+    if(sel){sel.value=matched;sel.classList.add('has-val');}
+    const fuSel=document.getElementById('fu-salesperson');
+    if(fuSel){fuSel.value=matched;}
+    defaultSalesperson=matched;
+  }
 }
 
 async function bootApp(){
   setLoading(true,'Ansluter till databasen...');
-  try{await loadAll();setLoading(false);nav('dashboard');startAutoRefresh();}
-  catch(e){document.getElementById('loading-text').textContent='Kunde inte ansluta. Kontrollera internetanslutningen och ladda om sidan.';}
+  try{
+    await loadAll();
+    setLoading(false);
+    applyDefaultSalespersonFilter();
+    nav('dashboard');
+    startAutoRefresh();
+  }catch(e){document.getElementById('loading-text').textContent='Kunde inte ansluta. Kontrollera internetanslutningen och ladda om sidan.';}
 }
 async function sb(method,table,body,params=''){
   const url=SUPA_URL+'/rest/v1/'+table+(params?'?'+params:'');
@@ -761,6 +807,7 @@ let searchCloseTimer=null;
 let searchQuery='';
 let sortField='company', sortDir=1;
 let autoRefreshTimer=null;
+let defaultSalesperson='';
 
 const today=()=>new Date().toISOString().split('T')[0];
 function nextWeekday(d,n){let dt=new Date(d+'T12:00:00'),a=0;while(a<n){dt.setDate(dt.getDate()+1);const wd=dt.getDay();if(wd!==0&&wd!==6)a++;}return dt.toISOString().split('T')[0];}
@@ -876,18 +923,124 @@ function doExport(){
   showToast('Export klar');
 }
 
+function renderStats(){
+  const t30=new Date();t30.setDate(t30.getDate()-30);
+  const t30str=t30.toISOString().split('T')[0];
+  const total=customers.length||1;
+
+  // ── Prognos per säljare ──
+  const prognosEl=document.getElementById('stats-prognos');
+  if(prognosEl){
+    const spPrognos={};
+    customers.forEach(c=>{
+      const sp=c.salesperson||'Ej tilldelad';
+      spPrognos[sp]=(spPrognos[sp]||0)+(c.prognos||0);
+    });
+    const maxP=Math.max(...Object.values(spPrognos),1);
+    prognosEl.innerHTML=Object.entries(spPrognos)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([sp,val])=>'<div class="bar-row"><span class="bar-label">'+sp+'</span>'
+        +'<div class="bar-track"><div class="bar-fill" style="width:'+Math.round(val/maxP*100)+'%"></div></div>'
+        +'<span class="bar-count" style="min-width:70px;text-align:right;font-size:12px;color:var(--teal-text);">'+Math.round(val/1000)+'k kr</span></div>').join('');
+  }
+
+  // ── Pipeline per säljare ──
+  const pipelineEl=document.getElementById('stats-pipeline');
+  if(pipelineEl){
+    const spPipeline={};
+    customers.filter(c=>c.has_offer||c.has_negotiation).forEach(c=>{
+      const sp=c.salesperson||'Ej tilldelad';
+      spPipeline[sp]=(spPipeline[sp]||0)+1;
+    });
+    const maxPL=Math.max(...Object.values(spPipeline),1);
+    if(Object.keys(spPipeline).length===0){
+      pipelineEl.innerHTML='<div style="color:var(--text3);font-size:13px;">Inga aktiva offerter</div>';
+    } else {
+      pipelineEl.innerHTML=Object.entries(spPipeline)
+        .sort((a,b)=>b[1]-a[1])
+        .map(([sp,cnt])=>'<div class="bar-row"><span class="bar-label">'+sp+'</span>'
+          +'<div class="bar-track"><div class="bar-fill" style="width:'+Math.round(cnt/maxPL*100)+'%;background:var(--purple-text);"></div></div>'
+          +'<span class="bar-count">'+cnt+' st</span></div>').join('');
+    }
+  }
+
+  // ── Kontakter senaste 30 dagar ──
+  const contactsEl=document.getElementById('stats-contacts');
+  if(contactsEl){
+    const spContacts={};
+    salespersons.forEach(sp=>spContacts[sp]=0);
+    Object.values(notesIndex).forEach(notes=>{
+      notes.filter(n=>n.type==='Kontakt'&&n.note_date>=t30str).forEach(n=>{
+        const c=customers.find(x=>x.id===n.customer_id);
+        const sp=c?c.salesperson||'Ej tilldelad':'Ej tilldelad';
+        spContacts[sp]=(spContacts[sp]||0)+1;
+      });
+    });
+    const maxC=Math.max(...Object.values(spContacts),1);
+    contactsEl.innerHTML=Object.entries(spContacts)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([sp,cnt])=>'<div class="bar-row"><span class="bar-label">'+sp+'</span>'
+        +'<div class="bar-track"><div class="bar-fill" style="width:'+Math.round(cnt/maxC*100)+'%;background:var(--teal);"></div></div>'
+        +'<span class="bar-count">'+cnt+' st</span></div>').join('');
+  }
+
+  // ── Temp fördelning ──
+  const tempEl=document.getElementById('stats-temp');
+  if(tempEl){
+    const tempCount={Het:0,Ljummen:0,Sval:0};
+    customers.forEach(c=>{if(tempCount[c.temp]!==undefined)tempCount[c.temp]++;});
+    const maxT=Math.max(...Object.values(tempCount),1);
+    const tempColors={Het:'#D85A30',Ljummen:'var(--amber)',Sval:'var(--blue)'};
+    tempEl.innerHTML=Object.entries(tempCount).map(([t,cnt])=>
+      '<div class="bar-row"><span class="bar-label">'+t+'</span>'
+      +'<div class="bar-track"><div class="bar-fill" style="width:'+Math.round(cnt/maxT*100)+'%;background:'+tempColors[t]+';"></div></div>'
+      +'<span class="bar-count">'+cnt+' st</span></div>').join('');
+  }
+
+  // ── Aktivitet per säljare ──
+  const actEl=document.getElementById('stats-activity');
+  if(actEl){
+    const spAct={};
+    salespersons.forEach(sp=>spAct[sp]={notes:0,contacts:0,customers:0});
+    Object.values(notesIndex).forEach(notes=>{
+      notes.filter(n=>n.note_date>=t30str).forEach(n=>{
+        const c=customers.find(x=>x.id===n.customer_id);
+        const sp=c?c.salesperson||'Ej tilldelad':'Ej tilldelad';
+        if(!spAct[sp]) spAct[sp]={notes:0,contacts:0,customers:0};
+        if(n.type!=='System') spAct[sp].notes++;
+        if(n.type==='Kontakt') spAct[sp].contacts++;
+      });
+    });
+    customers.forEach(c=>{
+      const sp=c.salesperson||'Ej tilldelad';
+      if(!spAct[sp]) spAct[sp]={notes:0,contacts:0,customers:0};
+      spAct[sp].customers++;
+    });
+    actEl.innerHTML='<div style="display:grid;grid-template-columns:repeat('+Math.min(salespersons.length,3)+',1fr);gap:12px;">'
+      +Object.entries(spAct).map(([sp,d])=>
+        '<div style="background:var(--bg2);border-radius:var(--r);padding:14px;border:1px solid var(--border);">'
+        +'<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">'+sp+'</div>'
+        +'<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Kunder totalt: <strong style="color:var(--text);">'+d.customers+'</strong></div>'
+        +'<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Kontakter (30 dagar): <strong style="color:var(--teal-text);">'+d.contacts+'</strong></div>'
+        +'<div style="font-size:12px;color:var(--text2);">Anteckningar (30 dagar): <strong style="color:var(--blue-text);">'+d.notes+'</strong></div>'
+        +'</div>').join('')
+      +'</div>';
+  }
+}
+
 function nav(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const el=document.getElementById('nav-'+page);if(el)el.classList.add('active');
   document.getElementById('page-'+page).classList.add('active');
-  const titles={dashboard:'Dashboard',customers:'Kunder',followup:'Uppföljning',admin:'Administration',import:'Importera'};
+  const titles={dashboard:'Dashboard',customers:'Kunder',followup:'Uppföljning',stats:'Statistik',admin:'Administration',import:'Importera'};
   document.getElementById('topbar-title').textContent=titles[page]||'';
   document.getElementById('refresh-btn' in document ? 'refresh-btn' : 'topbar-title').style;
   if(page==='dashboard')renderDashboard();
-  if(page==='customers'){populateIndFilter();populateSpFilter();renderCustomers();}
+  if(page==='customers'){populateIndFilter();populateSpFilter();if(defaultSalesperson){const sel=document.getElementById('filter-salesperson');if(sel&&!sel.value){sel.value=defaultSalesperson;sel.classList.add('has-val');}}renderCustomers();}
   if(page==='followup'){initFuDates();populateFuSp();renderFollowup();}
   if(page==='admin')renderAdminPage();
+  if(page==='stats')renderStats();
   if(page==='import'){document.getElementById('import-ind-list').textContent=industries.join(', ');document.getElementById('import-sp-list').textContent=salespersons.join(', ');}
 }
 function goBack(){nav(detailFromPage);}
@@ -941,7 +1094,14 @@ function renderDashboard(){
 function populateIndFilter(){const sel=document.getElementById('filter-industry');const cur=sel.value;sel.innerHTML='<option value="">Alla branscher</option>'+industries.map(i=>'<option value="'+i+'"'+(i===cur?' selected':'')+'>'+i+'</option>').join('');}
 function populateSpFilter(){const sel=document.getElementById('filter-salesperson');const cur=sel.value;sel.innerHTML='<option value="">Alla säljare</option>'+salespersons.map(s=>'<option value="'+s+'"'+(s===cur?' selected':'')+'>'+s+'</option>').join('');}
 function onFC(sel){sel.classList.toggle('has-val',sel.value!=='');renderCustomers();}
-function clearFilters(){['filter-temp','filter-status','filter-industry','filter-salesperson','filter-misc'].forEach(id=>{const el=document.getElementById(id);el.value='';el.classList.remove('has-val');});renderCustomers();}
+function clearFilters(){
+  ['filter-temp','filter-status','filter-industry','filter-salesperson','filter-misc'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.value='';el.classList.remove('has-val');}
+  });
+  lastFiltered=[...customers];
+  renderCustomers();
+}
 
 function sortCustomers(field){
   if(sortField===field) sortDir*=-1;
@@ -1072,6 +1232,26 @@ async function silentRefresh(){
     setSyncStatus('ok','Synkat '+new Date().toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){setSyncStatus('err','Synkfel');}
 }
+async function deleteCurrentCustomer(){
+  const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;
+  if(!confirm('Radera "'+c.company+'"?\n\nDetta raderar också alla anteckningar och kan inte ångras.')) return;
+  setSyncStatus('busy','Raderar...');
+  try{
+    // Delete notes first
+    await dbDel('notes','customer_id=eq.'+currentCustomerId);
+    // Delete customer
+    await dbDel('customers','id=eq.'+currentCustomerId);
+    customers=customers.filter(x=>x.id!==currentCustomerId);
+    delete notesIndex[currentCustomerId];
+    showToast(c.company+' raderad');
+    setSyncStatus('ok','Sparat');
+    nav('customers');
+  }catch(e){
+    setSyncStatus('err','Fel');
+    showToast('Kunde inte radera: '+e.message,true);
+  }
+}
+
 async function analyzeCustomer(){
   const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;
   const btn=document.getElementById('ai-analyze-btn');
@@ -1419,12 +1599,13 @@ async function toggleYear(){const c=customers.find(x=>x.id===currentCustomerId);
 function populateIndModal(){const si=document.getElementById('f-industry');const ci=si.value;si.innerHTML='<option value="">— Välj bransch —</option>'+industries.map(i=>'<option value="'+i+'"'+(i===ci?' selected':'')+'>'+i+'</option>').join('');const ss=document.getElementById('f-salesperson');const cs=ss.value;ss.innerHTML='<option value="">— Välj säljare —</option>'+salespersons.map(s=>'<option value="'+s+'"'+(s===cs?' selected':'')+'>'+s+'</option>').join('');}
 function openNewCustomer(){editingId=null;document.getElementById('modal-title').textContent='Ny kund';['f-company','f-contact','f-phone','f-email','f-prognos','f-next'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-temp').value='Sval';document.getElementById('modal-year-tog').classList.remove('on');document.querySelectorAll('#modal-temp-row .temp-opt').forEach(o=>o.className='temp-opt');document.querySelector('#modal-temp-row .temp-opt:last-child').classList.add('sel-cold');populateIndModal();document.getElementById('f-industry').value='';document.getElementById('f-salesperson').value='';document.getElementById('modal-customer').classList.add('open');}
 function editCurrent(){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;editingId=c.id;document.getElementById('modal-title').textContent='Redigera kund';document.getElementById('f-company').value=c.company;document.getElementById('f-contact').value=c.contact||'';document.getElementById('f-phone').value=c.phone||'';document.getElementById('f-email').value=c.email||'';document.getElementById('f-prognos').value=c.prognos||'';document.getElementById('f-next').value=c.next_contact||'';document.getElementById('f-temp').value=c.temp;document.getElementById('modal-year-tog').classList.toggle('on',c.active_year);document.querySelectorAll('#modal-temp-row .temp-opt').forEach(o=>{o.className='temp-opt';if(o.textContent===c.temp)o.classList.add(c.temp==='Het'?'sel-hot':c.temp==='Ljummen'?'sel-warm':'sel-cold');});populateIndModal();document.getElementById('f-industry').value=c.industry||'';document.getElementById('f-salesperson').value=c.salesperson||'';document.getElementById('modal-customer').classList.add('open');}
-function mSelTemp(el,val){document.querySelectorAll('#modal-temp-row .temp-opt').forEach(o=>o.className='temp-opt');el.classList.add(val==='Het'?'sel-hot':val==='Ljummen'?'sel-warm':'sel-cold');document.getElementById('f-temp').value=val;}
+function mSelTemp(el,val){document.querySelectorAll('#modal-temp-row .temp-opt').forEach(o=>o.className='temp-opt');el.classList.add(val==='Het'?'sel-hot':val==='Ljummen'?'sel-warm':'sel-cold');document.getElementById('f-temp').value=val;document.getElementById('f-temp').dispatchEvent(new Event('change'));}
 function closeModal(){document.getElementById('modal-customer').classList.remove('open');}
 async function saveCustomer(){
   const company=document.getElementById('f-company').value.trim();if(!company){alert('Företagsnamn krävs');return;}
   const btn=document.getElementById('modal-save-btn');btn.disabled=true;btn.textContent='Sparar...';
-  const data={company,contact:document.getElementById('f-contact').value.trim()||null,phone:document.getElementById('f-phone').value.trim()||null,email:document.getElementById('f-email').value.trim()||null,prognos:parseInt(document.getElementById('f-prognos').value)||0,status:'Kontaktad',temp:document.getElementById('f-temp').value||'Sval',industry:document.getElementById('f-industry').value||null,salesperson:document.getElementById('f-salesperson').value||null,next_contact:document.getElementById('f-next').value||null,active_year:document.getElementById('modal-year-tog').classList.contains('on'),has_offer:false,has_negotiation:false,next_step:null};
+  const tempVal=document.getElementById('f-temp').value;if(!tempVal){showToast('Välj en temperatur för kunden',true);btn.disabled=false;btn.textContent='Spara kund';return;}
+  const data={company,contact:document.getElementById('f-contact').value.trim()||null,phone:document.getElementById('f-phone').value.trim()||null,email:document.getElementById('f-email').value.trim()||null,prognos:parseInt(document.getElementById('f-prognos').value)||0,status:'Kontaktad',temp:tempVal,industry:document.getElementById('f-industry').value||null,salesperson:document.getElementById('f-salesperson').value||null,next_contact:document.getElementById('f-next').value||null,active_year:document.getElementById('modal-year-tog').classList.contains('on'),has_offer:false,has_negotiation:false,next_step:null};
   try{if(editingId){await dbPatch('customers',data,'id=eq.'+editingId);const c=customers.find(x=>x.id===editingId);if(c)Object.assign(c,data);showToast('Kund uppdaterad');closeModal();openDetail(editingId,detailFromPage);}else{const result=await dbPost('customers',data);if(result&&result[0])customers.push(result[0]);await dbPost('notes',{customer_id:result[0].id,type:'System',note_date:today(),text:'Kund skapad'});showToast('Kund skapad');closeModal();nav('customers');}}catch(e){showToast('Kunde inte spara: '+e.message,true);}
   finally{btn.disabled=false;btn.textContent='Spara kund';}
 }
