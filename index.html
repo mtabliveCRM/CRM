@@ -195,6 +195,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .activity-company:hover{color:var(--teal-text);}
 .activity-meta{font-size:11px;color:var(--text3);margin-top:2px;}
 .tbl td{padding:var(--tbl-pad);font-size:var(--tbl-fs);border-bottom:1px solid var(--border);vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+.note-preview{position:relative;cursor:default;}
+.note-preview .note-tooltip{display:none;position:absolute;left:0;top:100%;z-index:50;background:var(--bg1);border:1px solid var(--border2);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--text2);max-width:320px;white-space:normal;line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.note-preview:hover .note-tooltip{display:block;}
 .tbl tr:last-child td{border-bottom:none;}
 .tbl tbody tr:hover td{background:var(--bg2);cursor:pointer;}
 .tbl .empty td{text-align:center;color:var(--text3);padding:32px;cursor:default;}
@@ -207,6 +210,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .badge.cold{background:var(--blue-bg);color:var(--blue-text);border:1px solid #1a3050;}
 .badge.s-contacted{background:var(--teal-bg);color:var(--teal-text);border:1px solid #0d3828;}
 .badge.s-sleeping{background:var(--bg3);color:var(--text2);border:1px solid var(--border2);}
+.badge.s-uncontacted{background:#1a1a2e;color:#888;border:1px solid #333;}
 .badge.s-offer{background:var(--purple-bg);color:var(--purple-text);border:1px solid #2a2040;}
 .badge.s-negotiation{background:var(--pink-bg);color:var(--pink-text);border:1px solid #4a1535;}
 .badge.active-yr{background:var(--teal-bg);color:var(--teal-text);border:1px solid #0d3828;}
@@ -470,8 +474,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
       <div class="page" id="page-customers">
         <div class="filter-bar">
           <label>Filter:</label>
-          <select class="fsel" id="filter-temp" onchange="onFC(this)"><option value="">Alla temp</option><option value="Het">Heta</option><option value="Ljummen">Ljumna</option><option value="Sval">Svala</option></select>
-          <select class="fsel" id="filter-status" onchange="onFC(this)"><option value="">Alla statusar</option><option value="Kontaktad">Kontaktad</option><option value="Offert ute">Offert ute</option><option value="Förhandling">Förhandling</option><option value="Vilande">Vilande</option></select>
+          <select class="fsel" id="filter-temp" onchange="onFC(this)">
+            <option value="">Alla temp</option>
+            <option value="Het">Heta</option>
+            <option value="Ljummen">Ljumna</option>
+            <option value="Sval">Svala</option>
+            <option value="ingen">Ingen temp satt</option>
+          </select>
+          <select class="fsel" id="filter-status" onchange="onFC(this)">
+            <option value="">Alla statusar</option>
+            <option value="Ej kontaktad">Ej kontaktad</option>
+            <option value="Kontaktad">Kontaktad</option>
+            <option value="Offert ute">Offert ute</option>
+            <option value="Förhandling">Förhandling</option>
+            <option value="Vilande">Vilande</option>
+          </select>
           <select class="fsel" id="filter-industry" onchange="onFC(this)"><option value="">Alla branscher</option></select>
           <select class="fsel" id="filter-salesperson" onchange="onFC(this)"><option value="">Alla säljare</option></select>
           <select class="fsel" id="filter-misc" onchange="onFC(this)"><option value="">Övrigt</option><option value="active_year">Aktiv i år</option><option value="overdue">Förfallen</option></select>
@@ -662,7 +679,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
               <div><label style="color:var(--purple-text);">Nästa steg</label><input type="text" class="nextstep-input" id="nextstep-text" placeholder="Vad ska hända härnäst? (valfritt)"></div>
               <div class="note-actions">
                 <button class="btn primary sm" onclick="saveNote()">&#128221; Spara anteckning</button>
-                <button class="btn amber-btn sm" onclick="markContacted()">&#10003; Kontaktad (+14 vardagar)</button>
+                <button class="btn amber-btn sm" id="kontaktad-btn" onclick="markContacted()">&#10003; Kontaktad (+14 vardagar)</button>
                 <button class="btn ghost sm" onclick="markSleeping()">&#128564; Sätt som vilande</button>
                 <button class="btn ghost sm" onclick="clearNextStep()" title="Rensa nästa steg">&#10006; Rensa nästa steg</button>
               </div>
@@ -749,6 +766,7 @@ async function doLogin(){
 }
 
 async function doLogout(){
+  if(sessionTimeoutTimer) clearTimeout(sessionTimeoutTimer);
   await supabaseClient.auth.signOut();
   authToken=null;currentUser=null;
   document.getElementById('login-screen').classList.remove('hidden');
@@ -791,6 +809,7 @@ async function bootApp(){
     applyDefaultSalespersonFilter();
     nav('dashboard');
     startAutoRefresh();
+    startSessionTimeout();
   }catch(e){document.getElementById('loading-text').textContent='Kunde inte ansluta. Kontrollera internetanslutningen och ladda om sidan.';}
 }
 async function sb(method,table,body,params=''){
@@ -815,6 +834,8 @@ let searchCloseTimer=null;
 let searchQuery='';
 let sortField='company', sortDir=1;
 let autoRefreshTimer=null;
+let sessionTimeoutTimer=null;
+const SESSION_TIMEOUT_MS=8*60*60*1000; // 8 timmar
 let defaultSalesperson='';
 
 const today=()=>new Date().toISOString().split('T')[0];
@@ -832,8 +853,20 @@ function setSyncStatus(s,t){document.getElementById('sync-dot').className='sync-
 function showToast(msg,isErr=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(isErr?' err':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
 function setLoading(show,text=''){document.getElementById('loading-overlay').classList.toggle('hidden',!show);if(text)document.getElementById('loading-text').textContent=text;}
 
-function tempBadge(t){if(t==='Het')return'<span class="badge hot"><span class="dot hot"></span>Het</span>';if(t==='Ljummen')return'<span class="badge warm"><span class="dot warm"></span>Ljummen</span>';return'<span class="badge cold"><span class="dot cold"></span>Sval</span>';}
-function statusBadge(c){const s=c.status;if(s==='Offert ute')return'<span class="badge s-offer">&#128196; Offert ute</span>';if(s==='Förhandling')return'<span class="badge s-negotiation">&#9878; Förhandling</span>';if(s==='Vilande')return'<span class="badge s-sleeping">Vilande</span>';return'<span class="badge s-contacted">Kontaktad</span>';}
+function tempBadge(t){
+  if(t==='Het') return'<span class="badge hot"><span class="dot hot"></span>Het</span>';
+  if(t==='Ljummen') return'<span class="badge warm"><span class="dot warm"></span>Ljummen</span>';
+  if(t==='Sval') return'<span class="badge cold"><span class="dot cold"></span>Sval</span>';
+  return''; // No badge if no temp
+}
+function statusBadge(c){
+  const s=c.status;
+  if(s==='Offert ute') return'<span class="badge s-offer">&#128196; Offert ute</span>';
+  if(s==='Förhandling') return'<span class="badge s-negotiation">&#9878; Förhandling</span>';
+  if(s==='Vilande') return'<span class="badge s-sleeping">Vilande</span>';
+  if(s==='Ej kontaktad'||!s) return'<span class="badge s-uncontacted">Ej kontaktad</span>';
+  return'<span class="badge s-contacted">Kontaktad</span>';
+}
 function dealBadges(c){let b='';if(c.has_offer)b+='<span class="badge s-offer">&#128196; Offert ute</span> ';if(c.has_negotiation)b+='<span class="badge s-negotiation">&#9878; Förhandling</span>';return b;}
 function indBadge(i){return i?'<span class="badge industry">'+i+'</span>':'';}
 
@@ -1145,7 +1178,13 @@ function filterCustomers(){
   let list=customers.filter(c=>{
     const q=searchQuery?searchQuery.toLowerCase():'';
     if(q){const basic=c.company.toLowerCase().includes(q)||(c.contact||'').toLowerCase().includes(q)||(c.salesperson||'').toLowerCase().includes(q)||(c.industry||'').toLowerCase().includes(q)||(c.next_step||'').toLowerCase().includes(q);const inNotes=(notesIndex[c.id]||[]).some(n=>n.text&&n.text.toLowerCase().includes(q));if(!basic&&!inNotes)return false;}
-    if(fT&&c.temp!==fT)return false;if(fS&&c.status!==fS)return false;if(fI&&c.industry!==fI)return false;if(fSp&&c.salesperson!==fSp)return false;
+    // Temp filter — "ingen" means no temp set
+    if(fT==='ingen'){if(c.temp&&c.temp!=='')return false;}
+    else if(fT&&c.temp!==fT)return false;
+    // Status filter — "Ej kontaktad" matches both explicit and missing status
+    if(fS==='Ej kontaktad'){if(c.status&&c.status!=='Ej kontaktad')return false;}
+    else if(fS&&c.status!==fS)return false;
+    if(fI&&c.industry!==fI)return false;if(fSp&&c.salesperson!==fSp)return false;
     if(fM==='active_year'&&!c.active_year)return false;if(fM==='overdue'&&!isOverdue(c))return false;return true;
   });
   // Sort
@@ -1164,7 +1203,52 @@ function filterCustomers(){
 function renderCustomers(){
   const list=filterCustomers();
   document.getElementById('filter-count').textContent=list.length<customers.length?list.length+' av '+customers.length+' kunder':'';
-  document.getElementById('customer-list').innerHTML=list.length?list.map(c=>'<tr class="'+(isOverdue(c)?'overdue-row':'')+'" onclick="openDetail(\''+c.id+'\',\'customers\')"><td><strong>'+c.company+'</strong></td><td style="color:var(--text2)">'+(c.salesperson||'<span style="color:var(--text3)">—</span>')+'</td><td>'+(indBadge(c.industry)||'<span style="color:var(--text3)">—</span>')+'</td><td>'+tempBadge(c.temp)+'</td><td '+(isOverdue(c)?'style="color:var(--red-text);font-weight:600;"':'')+'>'+fmtDate(c.next_contact)+'</td><td>'+statusBadge(c)+'</td><td style="color:var(--text2)">'+(c.next_step||'<span style="color:var(--text3)">—</span>')+'</td><td>'+fmtK(c.prognos)+'</td><td>'+(c.active_year?'<span class="badge active-yr">Ja</span>':'<span class="badge inactive">Nej</span>')+'</td></tr>').join(''):'<tr class="empty"><td colspan="9">Inga kunder matchar filtret</td></tr>';
+  const tbody=document.getElementById('customer-list');
+  if(!list.length){
+    tbody.innerHTML='<tr class="empty"><td colspan="9">Inga kunder matchar filtret</td></tr>';return;
+  }
+  tbody.innerHTML='';
+  list.forEach(c=>{
+    const notes=(notesIndex[c.id]||[]).filter(n=>n.type!=='System');
+    const latestNote=notes.length?notes[0]:null;
+    const noteShort=latestNote?(latestNote.text.length>35?latestNote.text.substring(0,35)+'...':latestNote.text):'—';
+    const tempB=tempBadge(c.temp)||'<span style="color:var(--text3);font-size:12px;">—</span>';
+    const tr=document.createElement('tr');
+    if(isOverdue(c)) tr.className='overdue-row';
+    tr.style.cursor='pointer';
+    tr.onclick=()=>openDetail(c.id,'customers');
+    const cells=[
+      '<strong>'+c.company+'</strong>',
+      c.salesperson||'<span style="color:var(--text3)">—</span>',
+      indBadge(c.industry)||'<span style="color:var(--text3)">—</span>',
+      tempB,
+      (isOverdue(c)?'<span style="color:var(--red-text);font-weight:600;">'+fmtDate(c.next_contact)+'</span>':fmtDate(c.next_contact)),
+      statusBadge(c),
+      '', // note preview — handled separately
+      fmtK(c.prognos),
+      c.active_year?'<span class="badge active-yr">Ja</span>':'<span class="badge inactive">Nej</span>'
+    ];
+    cells.forEach((html,idx)=>{
+      const td=document.createElement('td');
+      if(idx===1||idx===2) td.style.color='var(--text2)';
+      if(idx===6){
+        // Latest note with hover tooltip
+        td.className='note-preview';
+        td.style.cssText='color:var(--text3);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        td.textContent=noteShort;
+        if(latestNote){
+          const tt=document.createElement('div');
+          tt.className='note-tooltip';
+          tt.innerHTML=latestNote.text+'<div style="margin-top:4px;color:var(--text3);font-size:11px;">'+fmtDateTime(latestNote.created_at||latestNote.note_date)+'</div>';
+          td.appendChild(tt);
+        }
+      } else {
+        td.innerHTML=html;
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
 }
 
 let activityShowSystem=false;
@@ -1348,6 +1432,22 @@ async function doChangePw(){
   }catch(e){errEl.textContent='Kunde inte uppdatera lösenordet: '+e.message;}
 }
 
+function startSessionTimeout(){
+  resetSessionTimeout();
+  // Reset timer on any user interaction
+  ['click','keydown','mousemove','touchstart'].forEach(evt=>{
+    document.addEventListener(evt, resetSessionTimeout, {passive:true});
+  });
+}
+
+function resetSessionTimeout(){
+  if(sessionTimeoutTimer) clearTimeout(sessionTimeoutTimer);
+  sessionTimeoutTimer=setTimeout(()=>{
+    showToast('Du har loggats ut automatiskt efter 8 timmars inaktivitet.');
+    setTimeout(()=>doLogout(), 2000);
+  }, SESSION_TIMEOUT_MS);
+}
+
 function startAutoRefresh(){
   // Supabase Realtime via WebSocket for instant updates
   const wsUrl='wss://xhsbnzavwmfufuazsuyj.supabase.co/realtime/v1/websocket?apikey='+SUPA_KEY+'&vsn=1.0.0';
@@ -1454,8 +1554,12 @@ function renderFollowup(){
 }
 async function quickContact(id){
   const c=customers.find(x=>x.id===id);if(!c)return;
-  const t=today();const next=nextWeekday(t,14);setSyncStatus('busy','Sparar...');
-  try{await dbPatch('customers',{last_contact:t,next_contact:next},'id=eq.'+id);await dbPost('notes',{customer_id:id,type:'System',note_date:t,text:'Kontaktad – nästa kontakt satt till '+next+' (vardagar)'});c.last_contact=t;c.next_contact=next;if(c.status==='Vilande'){c.status='Kontaktad';await dbPatch('customers',{status:'Kontaktad'},'id=eq.'+id);}setSyncStatus('ok','Sparat');showToast('Kontaktad sparad');renderFollowup();}
+  const t=today();
+  // Days based on temperature
+  const tempDays={'Het':14,'Ljummen':30,'Sval':60};
+  const followupDays=tempDays[c.temp]||14;
+  const next=nextWeekday(t,followupDays);setSyncStatus('busy','Sparar...');
+  try{await dbPatch('customers',{last_contact:t,next_contact:next},'id=eq.'+id);await dbPost('notes',{customer_id:id,type:'System',note_date:t,text:'Kontaktad – nästa kontakt satt till '+next+' (vardagar)'});c.last_contact=t;c.next_contact=next;if(c.status==='Vilande'||c.status==='Ej kontaktad'||!c.status){c.status='Kontaktad';await dbPatch('customers',{status:'Kontaktad'},'id=eq.'+id);}setSyncStatus('ok','Sparat');showToast('Kontaktad sparad');renderFollowup();}
   catch(e){setSyncStatus('err','Fel');showToast('Kunde inte spara',true);}
 }
 
@@ -1593,6 +1697,9 @@ async function openDetail(id,fromPage){
   document.getElementById('note-text').value='';document.getElementById('nextstep-text').value='';
   noteFilter='manual';setNoteFilter('manual');
   renderCreditDisplay();
+  // Update Kontaktad button label based on temp
+  const kBtn=document.getElementById('kontaktad-btn');
+  if(kBtn){const td={'Het':14,'Ljummen':30,'Sval':60};const d=td[c.temp]||14;kBtn.innerHTML='&#10003; Kontaktad (+'+d+' vardagar)';}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-detail').classList.add('active');
@@ -1615,17 +1722,21 @@ async function markContacted(){
   const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;
   const noteText=document.getElementById('note-text').value.trim();
   const nextStepText=document.getElementById('nextstep-text').value.trim();
-  const t=today();const next=nextWeekday(t,14);
+  const t=today();
+  // Days based on temperature
+  const tempDays={'Het':14,'Ljummen':30,'Sval':60};
+  const followupDays=tempDays[c.temp]||14;
+  const next=nextWeekday(t,followupDays);
   setSyncStatus('busy','Sparar...');
   try{
-    const newStatus=c.status==='Vilande'?'Kontaktad':c.status;
+    const newStatus=(c.status==='Vilande'||c.status==='Ej kontaktad'||!c.status)?'Kontaktad':c.status;
     const upd={last_contact:t,next_contact:next,status:newStatus,last_modified_by:currentUser?currentUser.email:''};
     if(nextStepText) upd.next_step=nextStepText;
     await patchCustomer(c.id,upd);
     const newNotes=[];
     if(noteText){const r=await dbPost('notes',{customer_id:c.id,type:'Kontakt',note_date:t,text:noteText});if(r&&r[0])newNotes.push(r[0]);}
     if(nextStepText){const r2=await dbPost('notes',{customer_id:c.id,type:'Nästa steg',note_date:t,text:nextStepText});if(r2&&r2[0])newNotes.push(r2[0]);}
-    const r3=await dbPost('notes',{customer_id:c.id,type:'System',note_date:t,text:'Kontaktad – nästa kontakt automatiskt satt till '+next+' (vardagar)'});
+    const r3=await dbPost('notes',{customer_id:c.id,type:'System',note_date:t,text:'Kontaktad – nästa kontakt satt till '+next+' ('+followupDays+' vardagar baserat på temp: '+(c.temp||'standard')+')'});
     if(r3&&r3[0]) newNotes.push(r3[0]);
     if(!notesIndex[c.id]) notesIndex[c.id]=[];
     notesIndex[c.id]=[...newNotes,...notesIndex[c.id]];
@@ -1787,7 +1898,7 @@ async function saveCustomer(){
     }
   }
   const tempVal=document.getElementById('f-temp').value;if(!tempVal){showToast('Välj en temperatur för kunden',true);btn.disabled=false;btn.textContent='Spara kund';return;}
-  const data={company,contact:document.getElementById('f-contact').value.trim()||null,phone:document.getElementById('f-phone').value.trim()||null,email:document.getElementById('f-email').value.trim()||null,prognos:parseInt(document.getElementById('f-prognos').value)||0,status:'Kontaktad',temp:tempVal,industry:document.getElementById('f-industry').value||null,salesperson:document.getElementById('f-salesperson').value||null,next_contact:document.getElementById('f-next').value||null,active_year:document.getElementById('modal-year-tog').classList.contains('on'),has_offer:false,has_negotiation:false,next_step:null};
+  const data={company,contact:document.getElementById('f-contact').value.trim()||null,phone:document.getElementById('f-phone').value.trim()||null,email:document.getElementById('f-email').value.trim()||null,prognos:parseInt(document.getElementById('f-prognos').value)||0,status:'Ej kontaktad',temp:tempVal,industry:document.getElementById('f-industry').value||null,salesperson:document.getElementById('f-salesperson').value||null,next_contact:document.getElementById('f-next').value||null,active_year:document.getElementById('modal-year-tog').classList.contains('on'),has_offer:false,has_negotiation:false,next_step:null};
   try{if(editingId){await dbPatch('customers',data,'id=eq.'+editingId);const c=customers.find(x=>x.id===editingId);if(c)Object.assign(c,data);showToast('Kund uppdaterad');closeModal();openDetail(editingId,detailFromPage);}else{const result=await dbPost('customers',data);if(result&&result[0])customers.push(result[0]);await dbPost('notes',{customer_id:result[0].id,type:'System',note_date:today(),text:'Kund skapad'});showToast('Kund skapad');closeModal();nav('customers');}}catch(e){showToast('Kunde inte spara: '+e.message,true);}
   finally{btn.disabled=false;btn.textContent='Spara kund';}
 }
