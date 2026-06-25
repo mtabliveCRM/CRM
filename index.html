@@ -79,6 +79,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .nav-item:hover{background:var(--bg2);color:var(--text);}
 .nav-item.active{background:var(--bg2);color:var(--text);border-left-color:var(--teal);font-weight:500;}
 .sidebar-footer{padding:16px 18px;border-top:1px solid var(--border);margin-top:auto;}
+.fortnox-connected{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--teal-text);padding:4px 0;}
+.fortnox-disconnected{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);padding:4px 0;}
 .sidebar-footer img{width:100%;max-width:144px;display:block;opacity:.9;}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 .topbar{background:var(--bg1);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;}
@@ -671,6 +673,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
               <button class="btn full" id="ai-analyze-btn" onclick="analyzeCustomer()" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-color:#534AB7;color:#afa9ec;font-weight:500;margin-bottom:8px;">&#10024; AI-analys av kund</button>
               <button class="btn full danger-outline" onclick="deleteCurrentCustomer()">&#128465; Radera kund</button>
             </div>
+            <div class="card" id="fortnox-card">
+              <h3>&#128200; Fortnox — Omsättning</h3>
+              <div id="fortnox-data" style="font-size:13px;color:var(--text3);">Laddar...</div>
+              <div style="margin-top:10px;" id="fortnox-btn-wrap"></div>
+            </div>
           </div>
           <div class="card" style="display:flex;flex-direction:column;min-height:560px;">
             <h3 style="margin-bottom:12px;">Anteckningar &amp; historik</h3>
@@ -782,7 +789,12 @@ function onLoginSuccess(){
   const initials=email.substring(0,2).toUpperCase();
   document.getElementById('user-avatar').textContent=initials;
   document.getElementById('user-email').textContent=email;
+  isAdmin=(currentUser&&currentUser.email===ADMIN_EMAIL);
   bootApp();
+}
+
+function updateNavVisibility(){
+  // Stats visible for all users
 }
 
 function applyDefaultSalespersonFilter(){
@@ -807,9 +819,12 @@ async function bootApp(){
     await loadAll();
     setLoading(false);
     applyDefaultSalespersonFilter();
+    await loadFortnoxSettings();
+    await handleFortnoxCallback();
     nav('dashboard');
     startAutoRefresh();
     startSessionTimeout();
+    updateNavVisibility();
   }catch(e){document.getElementById('loading-text').textContent='Kunde inte ansluta. Kontrollera internetanslutningen och ladda om sidan.';}
 }
 async function sb(method,table,body,params=''){
@@ -834,6 +849,11 @@ let searchCloseTimer=null;
 let searchQuery='';
 let sortField='company', sortDir=1;
 let autoRefreshTimer=null;
+let fortnoxToken=null;
+let isAdmin=false;
+const ADMIN_EMAIL='joakimofverbeck@hotmail.com';
+let fortnoxClientId=null;
+let fortnoxClientSecret=null;
 let sessionTimeoutTimer=null;
 const SESSION_TIMEOUT_MS=8*60*60*1000; // 8 timmar
 let defaultSalesperson='';
@@ -1083,6 +1103,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const el=document.getElementById('nav-'+page);if(el)el.classList.add('active');
   document.getElementById('page-'+page).classList.add('active');
+  document.querySelector('.content').scrollTop=0;
   const titles={dashboard:'Dashboard',customers:'Kunder',followup:'Uppföljning',stats:'Statistik',admin:'Administration',import:'Importera'};
   document.getElementById('topbar-title').textContent=titles[page]||'';
   document.getElementById('refresh-btn' in document ? 'refresh-btn' : 'topbar-title').style;
@@ -1376,6 +1397,144 @@ async function clearNextStep(){
     document.getElementById('nextstep-text').value='';
     showToast('Nästa steg rensat');
   }catch(e){showToast('Kunde inte rensa',true);}
+}
+
+// ── FORTNOX ───────────────────────────────────────────────────────────────────
+async function loadFortnoxSettings(){
+  try{
+    const [cidRow, csecRow, tokenRow] = await Promise.all([
+      dbGet('app_settings','key=eq.fortnox_client_id&select=value'),
+      dbGet('app_settings','key=eq.fortnox_client_secret&select=value'),
+      dbGet('app_settings','key=eq.fortnox_access_token&select=value')
+    ]);
+    fortnoxClientId = cidRow&&cidRow[0]?cidRow[0].value:null;
+    fortnoxClientSecret = csecRow&&csecRow[0]?csecRow[0].value:null;
+    fortnoxToken = tokenRow&&tokenRow[0]?tokenRow[0].value:null;
+  }catch(e){}
+}
+
+function connectFortnox(){
+  if(!fortnoxClientId){showToast('Fortnox Client ID saknas i inställningar',true);return;}
+  const redirectUri=encodeURIComponent(window.location.href.split('?')[0]);
+  const scope=encodeURIComponent('invoice customer companyinformation');
+  const url='https://apps.fortnox.se/oauth-v1/auth?client_id='+fortnoxClientId+'&redirect_uri='+redirectUri+'&scope='+scope+'&state=fortnox_auth&response_type=code&access_type=offline';
+  window.location.href=url;
+}
+
+async function handleFortnoxCallback(){
+  const params=new URLSearchParams(window.location.search);
+  const code=params.get('code');
+  const state=params.get('state');
+  if(!code||state!=='fortnox_auth') return;
+  // Clean URL
+  window.history.replaceState({},document.title,window.location.pathname);
+  showToast('Ansluter till Fortnox...');
+  try{
+    // Exchange code for token via Fortnox
+    const credentials=btoa(fortnoxClientId+':'+fortnoxClientSecret);
+    const resp=await fetch('https://apps.fortnox.se/oauth-v1/token',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/x-www-form-urlencoded',
+        'Authorization':'Basic '+credentials
+      },
+      body:'grant_type=authorization_code&code='+encodeURIComponent(code)+'&redirect_uri='+encodeURIComponent(window.location.href.split('?')[0])
+    });
+    if(!resp.ok) throw new Error('Token exchange failed');
+    const data=await resp.json();
+    fortnoxToken=data.access_token;
+    // Save token to Supabase
+    // Upsert access token
+    try{await dbPost('app_settings',{key:'fortnox_access_token',value:data.access_token});}
+    catch(e){await dbPatch('app_settings',{value:data.access_token},'key=eq.fortnox_access_token');}
+    // If row doesn't exist, insert it
+    if(data.refresh_token){
+      try{await dbPost('app_settings',{key:'fortnox_refresh_token',value:data.refresh_token});}catch(e){}
+    }
+    showToast('Fortnox ansluten!');
+  }catch(e){
+    showToast('Kunde inte ansluta Fortnox: '+e.message,true);
+  }
+}
+
+async function loadFortnoxData(customer){
+  const el=document.getElementById('fortnox-data');
+  const btnWrap=document.getElementById('fortnox-btn-wrap');
+  if(!el) return;
+
+  if(!fortnoxToken){
+    el.innerHTML='<div class="fortnox-disconnected">&#9679; Ej ansluten till Fortnox</div>';
+    if(btnWrap) btnWrap.innerHTML='<button class="btn sm primary" onclick="connectFortnox()">Anslut Fortnox</button>';
+    return;
+  }
+
+  // Search for customer in Fortnox by name or email
+  el.innerHTML='<span style="color:var(--text3);">Hämtar från Fortnox...</span>';
+  if(btnWrap) btnWrap.innerHTML='';
+
+  try{
+    const searchTerm=encodeURIComponent(customer.company);
+    const resp=await fetch('https://api.fortnox.se/3/customers?filter=active&limit=5&search='+searchTerm,{
+      headers:{
+        'Authorization':'Bearer '+fortnoxToken,
+        'Content-Type':'application/json',
+        'Accept':'application/json'
+      }
+    });
+
+    if(resp.status===401){
+      fortnoxToken=null;
+      el.innerHTML='<div class="fortnox-disconnected">&#9679; Fortnox-session utgången</div>';
+      if(btnWrap) btnWrap.innerHTML='<button class="btn sm primary" onclick="connectFortnox()">Återanslut</button>';
+      return;
+    }
+
+    if(!resp.ok) throw new Error('Fortnox API fel: '+resp.status);
+    const data=await resp.json();
+    const customers_fn=data.Customers||[];
+
+    if(!customers_fn.length){
+      el.innerHTML='<div style="color:var(--text3);">Ingen matchande kund hittad i Fortnox</div>';
+      return;
+    }
+
+    // Get invoices for first matching customer
+    const fnCust=customers_fn[0];
+    const invResp=await fetch('https://api.fortnox.se/3/invoices?customernumber='+fnCust.CustomerNumber+'&limit=100',{
+      headers:{'Authorization':'Bearer '+fortnoxToken,'Accept':'application/json'}
+    });
+    const invData=await invResp.json();
+    const invoices=invData.Invoices||[];
+
+    // Calculate totals
+    const now=new Date();
+    const currentYear=now.getFullYear();
+    let totalYear=0,totalPrev=0,totalAll=0;
+    invoices.forEach(inv=>{
+      const yr=parseInt((inv.InvoiceDate||'').substring(0,4));
+      const amt=parseFloat(inv.Total)||0;
+      totalAll+=amt;
+      if(yr===currentYear) totalYear+=amt;
+      if(yr===currentYear-1) totalPrev+=amt;
+    });
+
+    const fmt=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
+    el.innerHTML=
+      '<div class="fortnox-connected">&#9679; Ansluten — '+fnCust.Name+'</div>'
+      +'<div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+      +'<div style="background:var(--bg2);border-radius:var(--r);padding:10px;">'
+        +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">'+currentYear+' (fakturerat)</div>'
+        +'<div style="font-size:15px;font-weight:600;color:var(--teal-text);">'+fmt(totalYear)+'</div>'
+      +'</div>'
+      +'<div style="background:var(--bg2);border-radius:var(--r);padding:10px;">'
+        +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">'+(currentYear-1)+' (fakturerat)</div>'
+        +'<div style="font-size:15px;font-weight:600;color:var(--blue-text);">'+fmt(totalPrev)+'</div>'
+      +'</div>'
+      +'</div>'
+      +'<div style="margin-top:8px;font-size:12px;color:var(--text3);">Totalt fakturerat: '+fmt(totalAll)+' · '+invoices.length+' fakturor</div>';
+  }catch(e){
+    el.innerHTML='<div style="color:var(--red-text);font-size:12px;">Kunde inte hämta data: '+e.message+'</div>';
+  }
 }
 
 async function analyzeCustomer(){
@@ -1697,12 +1856,14 @@ async function openDetail(id,fromPage){
   document.getElementById('note-text').value='';document.getElementById('nextstep-text').value='';
   noteFilter='manual';setNoteFilter('manual');
   renderCreditDisplay();
+  loadFortnoxData(c);
   // Update Kontaktad button label based on temp
   const kBtn=document.getElementById('kontaktad-btn');
   if(kBtn){const td={'Het':14,'Ljummen':30,'Sval':60};const d=td[c.temp]||14;kBtn.innerHTML='&#10003; Kontaktad (+'+d+' vardagar)';}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-detail').classList.add('active');
+  document.querySelector('.content').scrollTop=0;
   document.getElementById('topbar-title').textContent=c.company;
   document.getElementById('notes-list').innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0;">Hämtar anteckningar...</div>';
   try{const notes=await loadNotes(id);renderNotes(notes);}
@@ -1734,8 +1895,8 @@ async function markContacted(){
     if(nextStepText) upd.next_step=nextStepText;
     await patchCustomer(c.id,upd);
     const newNotes=[];
-    if(noteText){const r=await dbPost('notes',{customer_id:c.id,type:'Kontakt',note_date:t,text:noteText});if(r&&r[0])newNotes.push(r[0]);}
-    if(nextStepText){const r2=await dbPost('notes',{customer_id:c.id,type:'Nästa steg',note_date:t,text:nextStepText});if(r2&&r2[0])newNotes.push(r2[0]);}
+    if(noteText){const r=await dbPost('notes',{customer_id:c.id,type:'Kontakt',note_date:t,text:noteText,created_by:currentUser?currentUser.email:''});if(r&&r[0])newNotes.push(r[0]);}
+    if(nextStepText){const r2=await dbPost('notes',{customer_id:c.id,type:'Nästa steg',note_date:t,text:nextStepText,created_by:currentUser?currentUser.email:''});if(r2&&r2[0])newNotes.push(r2[0]);}
     const r3=await dbPost('notes',{customer_id:c.id,type:'System',note_date:t,text:'Kontaktad – nästa kontakt satt till '+next+' ('+followupDays+' vardagar baserat på temp: '+(c.temp||'standard')+')'});
     if(r3&&r3[0]) newNotes.push(r3[0]);
     if(!notesIndex[c.id]) notesIndex[c.id]=[];
@@ -1839,11 +2000,11 @@ async function saveNote(){
     const t=today();
     const newNotes=[];
     if(noteText){
-      const r=await dbPost('notes',{customer_id:currentCustomerId,type:'Anteckning',note_date:t,text:noteText});
+      const r=await dbPost('notes',{customer_id:currentCustomerId,type:'Anteckning',note_date:t,text:noteText,created_by:currentUser?currentUser.email:''});
       if(r&&r[0]) newNotes.push(r[0]);
     }
     if(nextStepText){
-      const r2=await dbPost('notes',{customer_id:currentCustomerId,type:'Nästa steg',note_date:t,text:nextStepText});
+      const r2=await dbPost('notes',{customer_id:currentCustomerId,type:'Nästa steg',note_date:t,text:nextStepText,created_by:currentUser?currentUser.email:''});
       if(r2&&r2[0]) newNotes.push(r2[0]);
       await patchCustomer(currentCustomerId,{next_step:nextStepText});
     }
@@ -1860,7 +2021,6 @@ async function setManualDate(){const d=document.getElementById('d-manual-date').
 async function toggleFlag(field){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;c[field]=!c[field];let ns=c.status;if(c.has_negotiation)ns='Förhandling';else if(c.has_offer)ns='Offert ute';else if(c.status==='Förhandling'||c.status==='Offert ute')ns='Kontaktad';c.status=ns;try{await patchCustomer(c.id,{[field]:c[field],status:ns});document.getElementById('flag-offer').className='flag-box'+(c.has_offer?' checked-offer':'');document.getElementById('flag-negotiation').className='flag-box'+(c.has_negotiation?' checked-negotiation':'');document.getElementById('fc-offer').textContent=c.has_offer?'✓':'';document.getElementById('fc-negotiation').textContent=c.has_negotiation?'✓':'';document.getElementById('d-flag-badges').innerHTML=dealBadges(c);document.getElementById('d-badges').innerHTML=[statusBadge(c),c.active_year?'<span class="badge active-yr">Aktiv i år</span>':'',isOverdue(c)?'<span class="badge overdue">Förfallen</span>':''].filter(Boolean).join('');}catch(e){}}
 async function setTemp(t){
   const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;
-  // Toggle off if clicking the already-selected temp
   const currentTemp=c.temp||'';
   const newTemp=currentTemp===t?'':t;
   try{
@@ -1872,6 +2032,9 @@ async function setTemp(t){
       o.className='temp-opt';
       if(newTemp&&o.textContent===newTemp) o.classList.add(newTemp==='Het'?'sel-hot':newTemp==='Ljummen'?'sel-warm':'sel-cold');
     });
+    // Update Kontaktad button label immediately
+    const kBtn=document.getElementById('kontaktad-btn');
+    if(kBtn){const td={'Het':14,'Ljummen':30,'Sval':60};const d=td[newTemp]||14;kBtn.innerHTML='&#10003; Kontaktad (+'+d+' vardagar)';}
   }catch(e){showToast('Kunde inte spara',true);}
 }
 async function setIndustry(ind){const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;try{await patchCustomer(c.id,{industry:ind||null});document.getElementById('d-ind-badge').innerHTML=ind?indBadge(ind):'<span style="font-size:12px;color:var(--text3)">Ingen bransch vald</span>';document.getElementById('d-ind-chips').innerHTML=[...industries,''].map(i=>'<div class="ind-chip'+(c.industry===i?' active':'')+'" onclick="setIndustry(\''+i+'\')">'+( i||'Ingen')+'</div>').join('');}catch(e){}}
