@@ -53,6 +53,7 @@
 .stats-period-btn.active{background:var(--teal-bg);border-color:var(--teal);color:var(--teal-text);font-weight:600;}
 .stats-custom-date{display:flex;align-items:center;gap:6px;margin-left:auto;}
 .stats-custom-date input{padding:4px 8px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);color:var(--text);font-size:12px;font-family:inherit;}
+.stats-custom-date input::-webkit-calendar-picker-indicator{filter:invert(0.8) sepia(0.3) saturate(3) hue-rotate(150deg);cursor:pointer;opacity:0.9;}
 .stats-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0;}
 .stats-tab{padding:8px 18px;border:none;background:transparent;color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
 .stats-tab:hover{color:var(--text);}
@@ -83,6 +84,24 @@
 .stats-cust-tbl td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2);}
 .stats-cust-tbl tr:hover td{background:var(--bg2);cursor:pointer;}
 .stats-cust-tbl td:first-child{color:var(--text);font-weight:500;}
+
+
+/* ── KUNDANALYS ─────────────────────────────────────────────────── */
+.analysis-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--teal-bg);border:1px solid var(--teal);border-radius:20px;font-size:12px;color:var(--teal-text);}
+.analysis-chip button{background:none;border:none;cursor:pointer;color:var(--teal-text);font-size:14px;line-height:1;padding:0;margin:0;}
+.analysis-bar-group{display:flex;align-items:flex-end;gap:3px;flex:1;}
+.analysis-chart-wrap{display:flex;align-items:flex-end;gap:8px;height:160px;overflow-x:auto;padding-bottom:20px;position:relative;}
+.analysis-col{display:flex;flex-direction:column;align-items:center;min-width:60px;}
+.analysis-bar{width:100%;border-radius:3px 3px 0 0;min-height:2px;transition:height .3s;}
+.analysis-col-label{font-size:10px;color:var(--text3);margin-top:4px;white-space:nowrap;}
+.analysis-col-val{font-size:10px;font-weight:600;color:var(--text2);margin-bottom:2px;}
+.analysis-avg-line{position:absolute;left:0;right:0;border-top:2px dashed var(--amber);pointer-events:none;}
+.analysis-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.analysis-tbl th{padding:7px 10px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap;}
+.analysis-tbl td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2);}
+.analysis-tbl td:first-child{color:var(--text);font-weight:500;}
+.analysis-tbl .total-row td{font-weight:600;color:var(--teal-text);background:var(--teal-bg);}
+.analysis-tbl .avg-row td{font-style:italic;color:var(--amber-text);}
 
 </style>
 <style>
@@ -603,6 +622,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
           <button class="stats-tab active" id="stab-overview" onclick="switchStatsTab('overview')">&#128200; Översikt</button>
           <button class="stats-tab" id="stab-customers" onclick="switchStatsTab('customers')">&#128101; Kunder</button>
           <button class="stats-tab" id="stab-activity" onclick="switchStatsTab('activity')">&#9741; Aktivitet</button>
+          <button class="stats-tab" id="stab-analysis" onclick="switchStatsTab('analysis')">&#128202; Kundanalys</button>
         </div>
 
         <!-- Tab: Overview -->
@@ -667,6 +687,71 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
             <div id="stats-activity-detail" style="margin-top:10px;"></div>
           </div>
         </div>
+        <!-- Tab: Kundanalys -->
+        <div id="stats-tab-analysis" class="stats-tab-content">
+          <!-- Controls -->
+          <div class="card" style="margin-bottom:16px;">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">
+              <div style="flex:1;min-width:200px;">
+                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Välj kunder</div>
+                <div id="analysis-customer-search" style="position:relative;">
+                  <input type="text" id="analysis-search-input" placeholder="Sök och välj kunder..." 
+                    style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);color:var(--text);font-size:13px;font-family:inherit;"
+                    oninput="filterAnalysisCustomers()" onfocus="showAnalysisDropdown()">
+                  <div id="analysis-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg1);border:1px solid var(--border2);border-radius:var(--r);max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.3);"></div>
+                </div>
+                <div id="analysis-selected-customers" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:28px;"></div>
+              </div>
+              <div style="min-width:160px;">
+                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Eller välj segment</div>
+                <select id="analysis-segment" class="fsel" onchange="onAnalysisSegmentChange()" style="width:100%;">
+                  <option value="">Välj bransch...</option>
+                </select>
+              </div>
+              <div style="min-width:130px;">
+                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Intervall</div>
+                <select id="analysis-interval" class="fsel" onchange="renderAnalysis()" style="width:100%;">
+                  <option value="quarter">Kvartal</option>
+                  <option value="halfyear">Halvår</option>
+                  <option value="year">År</option>
+                  <option value="month">Månad</option>
+                </select>
+              </div>
+              <div style="min-width:130px;">
+                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Visa</div>
+                <select id="analysis-metric" class="fsel" onchange="renderAnalysis()" style="width:100%;">
+                  <option value="contacts">Kontakter</option>
+                  <option value="prognos">Prognos (kr)</option>
+                  <option value="fakturerat">Fakturerat (Fortnox)</option>
+                </select>
+              </div>
+              <div style="min-width:110px;">
+                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Graftyp</div>
+                <select id="analysis-chart-type" class="fsel" onchange="renderAnalysis()" style="width:100%;">
+                  <option value="bar">Stapel</option>
+                  <option value="line">Linje</option>
+                </select>
+              </div>
+              <button class="btn primary sm" onclick="renderAnalysis()" style="align-self:flex-end;padding:8px 16px;">Uppdatera</button>
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="card" style="margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h3 id="analysis-chart-title" style="margin:0;">Välj kunder eller segment ovan</h3>
+              <div style="font-size:12px;color:var(--text3);" id="analysis-avg-label"></div>
+            </div>
+            <div id="analysis-chart" style="overflow-x:auto;min-height:120px;"></div>
+          </div>
+
+          <!-- Table -->
+          <div class="card">
+            <h3>Detaljerad data</h3>
+            <div id="analysis-table" style="overflow-x:auto;margin-top:10px;"></div>
+          </div>
+        </div>
+
       </div>
 
       <!-- ADMIN -->
@@ -1126,15 +1211,326 @@ function setStatsPeriod(period, btn){
   renderStats();
 }
 
+// ── KUNDANALYS ────────────────────────────────────────────────────────────────
+let analysisSelectedIds = new Set();
+
+function initAnalysisTab(){
+  // Populate segment dropdown
+  const seg = document.getElementById('analysis-segment');
+  if(seg && industries.length){
+    seg.innerHTML = '<option value="">Välj bransch...</option>'
+      + industries.map(i=>'<option value="'+i+'">'+i+'</option>').join('');
+  }
+}
+
+function filterAnalysisCustomers(){
+  const q = (document.getElementById('analysis-search-input').value||'').toLowerCase();
+  const dd = document.getElementById('analysis-dropdown');
+  if(!q){dd.style.display='none';return;}
+  const matches = customers.filter(c=>c.company.toLowerCase().includes(q)).slice(0,10);
+  dd.style.display = matches.length?'block':'none';
+  dd.innerHTML='';
+  matches.forEach(c=>{
+    const item=document.createElement('div');
+    item.style.cssText='padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);color:var(--text);';
+    item.innerHTML=c.company+'<span style="font-size:11px;color:var(--text3);margin-left:8px;">'+(c.industry||'')+'</span>';
+    item.onmouseover=()=>item.style.background='var(--bg2)';
+    item.onmouseout=()=>item.style.background='';
+    item.onclick=()=>addAnalysisCustomer(c.id);
+    dd.appendChild(item);
+  });
+}
+
+function showAnalysisDropdown(){
+  filterAnalysisCustomers();
+}
+
+function addAnalysisCustomer(id){
+  analysisSelectedIds.add(id);
+  document.getElementById('analysis-search-input').value='';
+  document.getElementById('analysis-dropdown').style.display='none';
+  document.getElementById('analysis-segment').value='';
+  renderAnalysisChips();
+  renderAnalysis();
+}
+
+function removeAnalysisCustomer(id){
+  analysisSelectedIds.delete(id);
+  renderAnalysisChips();
+  renderAnalysis();
+}
+
+function onAnalysisSegmentChange(){
+  const seg = document.getElementById('analysis-segment').value;
+  if(!seg) return;
+  analysisSelectedIds.clear();
+  customers.filter(c=>c.industry===seg).forEach(c=>analysisSelectedIds.add(c.id));
+  renderAnalysisChips();
+  renderAnalysis();
+}
+
+function renderAnalysisChips(){
+  const wrap = document.getElementById('analysis-selected-customers');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  [...analysisSelectedIds].forEach(id=>{
+    const c = customers.find(x=>x.id===id);
+    if(!c) return;
+    const chip=document.createElement('div');
+    chip.className='analysis-chip';
+    chip.innerHTML=c.company;
+    const btn=document.createElement('button');
+    btn.innerHTML='&#215;';
+    btn.onclick=()=>removeAnalysisCustomer(id);
+    chip.appendChild(btn);
+    wrap.appendChild(chip);
+  });
+}
+
+function getPeriods(interval, fromDate, toDate){
+  const periods = [];
+  const now = new Date();
+  const start = fromDate ? new Date(fromDate) : new Date(now.getFullYear()-2, 0, 1);
+  const end = toDate ? new Date(toDate) : now;
+
+  if(interval==='quarter'){
+    let d = new Date(start.getFullYear(), Math.floor(start.getMonth()/3)*3, 1);
+    while(d <= end){
+      const q = Math.floor(d.getMonth()/3)+1;
+      const yr = d.getFullYear();
+      const from = yr+'-'+String(q*3-2).padStart(2,'0')+'-01';
+      const toM = new Date(yr, q*3, 0);
+      const to = toM.getFullYear()+'-'+String(toM.getMonth()+1).padStart(2,'0')+'-'+String(toM.getDate()).padStart(2,'0');
+      periods.push({label:'K'+q+' '+yr, from, to});
+      d.setMonth(d.getMonth()+3);
+    }
+  } else if(interval==='halfyear'){
+    let d = new Date(start.getFullYear(), start.getMonth()<6?0:6, 1);
+    while(d <= end){
+      const h = d.getMonth()<6?1:2;
+      const yr = d.getFullYear();
+      const from = yr+'-'+(h===1?'01':'07')+'-01';
+      const to = yr+'-'+(h===1?'06-30':'12-31');
+      periods.push({label:'H'+h+' '+yr, from, to});
+      d.setMonth(d.getMonth()+6);
+    }
+  } else if(interval==='year'){
+    let yr = start.getFullYear();
+    while(yr <= end.getFullYear()){
+      periods.push({label:''+yr, from:yr+'-01-01', to:yr+'-12-31'});
+      yr++;
+    }
+  } else { // month
+    let d = new Date(start.getFullYear(), start.getMonth(), 1);
+    const monthNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+    while(d <= end){
+      const yr = d.getFullYear();
+      const m = d.getMonth();
+      const from = yr+'-'+String(m+1).padStart(2,'0')+'-01';
+      const lastDay = new Date(yr, m+1, 0).getDate();
+      const to = yr+'-'+String(m+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+      periods.push({label:monthNames[m]+' '+yr, from, to});
+      d.setMonth(d.getMonth()+1);
+    }
+  }
+  return periods;
+}
+
+function getMetricValue(custId, period, metric){
+  if(metric==='contacts'){
+    return (notesIndex[custId]||[]).filter(n=>
+      n.type==='Kontakt' && (n.note_date||'')>=period.from && (n.note_date||'')<=period.to
+    ).length;
+  }
+  if(metric==='prognos'){
+    const c = customers.find(x=>x.id===custId);
+    return c ? (c.prognos||0) : 0;
+  }
+  if(metric==='fakturerat'){
+    // Placeholder for Fortnox data — returns 0 until connected
+    return 0;
+  }
+  return 0;
+}
+
+function renderAnalysis(){
+  const interval = document.getElementById('analysis-interval')?document.getElementById('analysis-interval').value:'quarter';
+  const metric = document.getElementById('analysis-metric')?document.getElementById('analysis-metric').value:'contacts';
+  const chartType = document.getElementById('analysis-chart-type')?document.getElementById('analysis-chart-type').value:'bar';
+  const selectedList = [...analysisSelectedIds].map(id=>customers.find(c=>c.id===id)).filter(Boolean);
+
+  if(!selectedList.length){
+    const ct = document.getElementById('analysis-chart-title');
+    if(ct) ct.textContent='Välj kunder eller segment ovan';
+    const ch = document.getElementById('analysis-chart');
+    if(ch) ch.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px 0;">Ingen kund vald ännu.</div>';
+    const tbl = document.getElementById('analysis-table');
+    if(tbl) tbl.innerHTML='';
+    return;
+  }
+
+  const periods = getPeriods(interval, statsFrom, statsTo);
+  const metricLabels = {contacts:'Kontakter', prognos:'Prognos (kr)', fakturerat:'Fakturerat kr (Fortnox)'};
+  const ct = document.getElementById('analysis-chart-title');
+  if(ct) ct.textContent=metricLabels[metric]+' per '+interval+' — '+selectedList.map(c=>c.company).join(', ');
+
+  // Build data matrix: rows=customers, cols=periods
+  const data = selectedList.map(c=>({
+    company: c.company,
+    values: periods.map(p=>getMetricValue(c.id, p, metric))
+  }));
+
+  // Colors per customer
+  const colorPalette=['var(--teal)','var(--blue)','var(--purple-text)','var(--amber)','#D85A30','#3F6F6B'];
+  
+  // Compute totals per period and overall average
+  const periodTotals = periods.map((_,pi)=>data.reduce((s,row)=>s+row.values[pi],0));
+  const grandTotal = periodTotals.reduce((s,v)=>s+v,0);
+  const avg = periods.length ? Math.round(grandTotal/periods.length) : 0;
+
+  // ── CHART ──
+  const chartEl = document.getElementById('analysis-chart');
+  if(chartEl){
+    const maxVal = Math.max(...data.flatMap(r=>r.values), avg, 1);
+
+    if(chartType==='bar'){
+      chartEl.innerHTML = '<div class="analysis-chart-wrap" id="analysis-chart-inner"></div>';
+      const inner = document.getElementById('analysis-chart-inner');
+      periods.forEach((p,pi)=>{
+        const col = document.createElement('div');
+        col.className='analysis-col';
+        col.style.flex='1';
+
+        // Stacked bars per customer
+        const barGroup = document.createElement('div');
+        barGroup.className='analysis-bar-group';
+        barGroup.style.cssText='display:flex;align-items:flex-end;gap:2px;width:100%;height:140px;';
+
+        data.forEach((row,ci)=>{
+          const val = row.values[pi];
+          const pct = Math.round(val/maxVal*130);
+          const bar = document.createElement('div');
+          bar.className='analysis-bar';
+          bar.style.cssText='height:'+Math.max(pct,val>0?2:0)+'px;background:'+colorPalette[ci%colorPalette.length]+';flex:1;border-radius:2px 2px 0 0;';
+          bar.title=row.company+': '+(metric==='contacts'?val:Math.round(val/1000)+'k');
+          barGroup.appendChild(bar);
+        });
+
+        const valLabel = document.createElement('div');
+        valLabel.className='analysis-col-val';
+        valLabel.style.cssText='font-size:10px;color:var(--text3);text-align:center;';
+        const total = data.reduce((s,row)=>s+row.values[pi],0);
+        valLabel.textContent = metric==='contacts'?total:(total>0?Math.round(total/1000)+'k':'');
+
+        const label = document.createElement('div');
+        label.className='analysis-col-label';
+        label.style.cssText='font-size:10px;color:var(--text3);text-align:center;margin-top:4px;';
+        label.textContent=p.label;
+
+        col.appendChild(barGroup);
+        col.appendChild(valLabel);
+        col.appendChild(label);
+        inner.appendChild(col);
+      });
+    } else {
+      // Line chart as SVG
+      const w=Math.max(periods.length*70,300), h=140;
+      const padL=30,padB=20,padT=10;
+      const iW=w-padL, iH=h-padB-padT;
+      let svg='<svg width="'+w+'" height="'+h+'" style="overflow:visible;">';
+      // Grid lines
+      for(let i=0;i<=4;i++){
+        const y=padT+iH-(iH*i/4);
+        svg+='<line x1="'+padL+'" y1="'+y+'" x2="'+w+'" y2="'+y+'" stroke="var(--border)" stroke-width="0.5"/>';
+        const lv=Math.round(maxVal*i/4);
+        svg+='<text x="'+(padL-4)+'" y="'+(y+4)+'" text-anchor="end" font-size="9" fill="var(--text3)">'+(metric==='contacts'?lv:Math.round(lv/1000)+'k')+'</text>';
+      }
+      // Lines per customer
+      data.forEach((row,ci)=>{
+        const pts=row.values.map((v,pi)=>{
+          const x=padL+(pi/(Math.max(periods.length-1,1)))*iW;
+          const y=padT+iH-(v/maxVal)*iH;
+          return x+','+y;
+        });
+        svg+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+colorPalette[ci%colorPalette.length]+'" stroke-width="2" stroke-linejoin="round"/>';
+        row.values.forEach((v,pi)=>{
+          const x=padL+(pi/Math.max(periods.length-1,1))*iW;
+          const y=padT+iH-(v/maxVal)*iH;
+          svg+='<circle cx="'+x+'" cy="'+y+'" r="3" fill="'+colorPalette[ci%colorPalette.length]+'"/>';
+        });
+      });
+      // Average line
+      const avgY=padT+iH-(avg/maxVal)*iH;
+      svg+='<line x1="'+padL+'" y1="'+avgY+'" x2="'+w+'" y2="'+avgY+'" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="4,3"/>';
+      svg+='<text x="'+(w+4)+'" y="'+(avgY+4)+'" font-size="9" fill="var(--amber-text)">snitt</text>';
+      // X labels
+      periods.forEach((p,pi)=>{
+        const x=padL+(pi/Math.max(periods.length-1,1))*iW;
+        svg+='<text x="'+x+'" y="'+(h-4)+'" text-anchor="middle" font-size="9" fill="var(--text3)">'+p.label+'</text>';
+      });
+      svg+='</svg>';
+      chartEl.innerHTML='<div style="overflow-x:auto;">'+svg+'</div>';
+    }
+
+    // Legend
+    const legEl=document.getElementById('analysis-avg-label');
+    if(legEl){
+      legEl.innerHTML='<span style="color:var(--amber-text);">— Snitt: '+(metric==='contacts'?avg:Math.round(avg/1000)+'k')+'</span>'
+        +' &nbsp; '+data.map((row,ci)=>'<span style="color:'+colorPalette[ci%colorPalette.length]+';margin-left:8px;">&#9632; '+row.company+'</span>').join('');
+    }
+  }
+
+  // ── TABLE ──
+  const tblEl=document.getElementById('analysis-table');
+  if(tblEl){
+    const fmt=v=>metric==='contacts'?v:Math.round(v/1000)+'k';
+    let html='<table class="analysis-tbl"><thead><tr><th>Kund</th>'
+      +periods.map(p=>'<th>'+p.label+'</th>').join('')
+      +'<th>Totalt</th><th>Snitt/period</th>'
+      +'</tr></thead><tbody>';
+
+    data.forEach((row,ci)=>{
+      const rowTotal=row.values.reduce((s,v)=>s+v,0);
+      const rowAvg=periods.length?Math.round(rowTotal/periods.length):0;
+      html+='<tr><td><span style="color:'+colorPalette[ci%colorPalette.length]+';">&#9632;</span> '+row.company+'</td>'
+        +row.values.map(v=>'<td style="text-align:center;">'+fmt(v)+'</td>').join('')
+        +'<td style="text-align:center;font-weight:600;color:var(--teal-text);">'+fmt(rowTotal)+'</td>'
+        +'<td style="text-align:center;color:var(--text3);">'+fmt(rowAvg)+'</td>'
+        +'</tr>';
+    });
+
+    // Totals row
+    html+='<tr class="total-row"><td>Totalt</td>'
+      +periodTotals.map(v=>'<td style="text-align:center;">'+fmt(v)+'</td>').join('')
+      +'<td style="text-align:center;">'+fmt(grandTotal)+'</td>'
+      +'<td style="text-align:center;">'+fmt(avg)+'</td>'
+      +'</tr>';
+
+    // Average row
+    const periodAvgs=periodTotals.map(v=>selectedList.length?Math.round(v/selectedList.length):0);
+    html+='<tr class="avg-row"><td>Snitt per kund</td>'
+      +periodAvgs.map(v=>'<td style="text-align:center;">'+fmt(v)+'</td>').join('')
+      +'<td></td><td></td></tr>';
+
+    html+='</tbody></table>';
+
+    if(metric==='fakturerat'){
+      html+='<div style="margin-top:8px;padding:8px 12px;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--r);font-size:12px;color:var(--amber-text);">&#9888; Fortnox ej ansluten — faktureringsdata visas när kopplingen är aktiv.</div>';
+    }
+    tblEl.innerHTML=html;
+  }
+}
+
 function switchStatsTab(tab){
   statsTab=tab;
   document.querySelectorAll('.stats-tab').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.stats-tab-content').forEach(c=>c.classList.remove('active'));
   const btn=document.getElementById('stab-'+tab);
-  const content=document.getElementById('stats-tab-'+tab);
+  const cont=document.getElementById('stats-tab-'+tab);
   if(btn) btn.classList.add('active');
-  if(content) content.classList.add('active');
-  renderStats();
+  if(cont) cont.classList.add('active');
+  if(tab==='analysis'){initAnalysisTab();renderAnalysis();}
+  else renderStats();
 }
 
 function getFilteredNotes(){
