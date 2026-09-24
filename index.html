@@ -189,6 +189,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:12px 18px;font-size:13px;color:var(--text);z-index:400;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.err{border-color:var(--red);color:var(--red-text);}
+.export-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:center;justify-content:center;}
+.export-modal-bg.open{display:flex;}
+.export-modal{background:var(--bg1);border:1px solid var(--border2);border-radius:var(--rl);padding:28px;width:340px;}
+.export-modal h3{font-size:15px;font-weight:600;margin-bottom:8px;}
+.export-modal p{font-size:13px;color:var(--text2);margin-bottom:16px;}
+.export-modal input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);font-size:13px;color:var(--text);font-family:inherit;margin-bottom:12px;}
+.export-modal input:focus{outline:none;border-color:var(--teal);}
+.export-modal-err{font-size:12px;color:var(--red-text);margin-bottom:10px;display:none;}
+.export-modal-btns{display:flex;gap:8px;justify-content:flex-end;}
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
 .stat-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--rl);padding:18px 20px;cursor:pointer;transition:border-color .15s,background .15s;}
 .stat-card:hover{border-color:var(--teal);background:var(--bg2);}
@@ -371,6 +380,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 <div class="loading-overlay" id="loading-overlay"><div class="spinner"></div><div class="loading-text" id="loading-text">Ansluter till databasen...</div></div>
 <div class="toast" id="toast"></div>
 
+<div class="export-modal-bg" id="export-modal-bg">
+  <div class="export-modal">
+    <h3>&#128274; Exportera data</h3>
+    <p>Ange administratörslösenordet för att exportera kunddata.</p>
+    <input type="password" id="export-pw-input" placeholder="Lösenord..." onkeydown="if(event.key==='Enter')confirmExport()">
+    <div class="export-modal-err" id="export-pw-err">Fel lösenord. Försök igen.</div>
+    <div class="export-modal-btns">
+      <button class="btn ghost" onclick="closeExportModal()">Avbryt</button>
+      <button class="btn primary" onclick="confirmExport()">Exportera</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- CHANGE PASSWORD MODAL -->
 <div class="pw-modal-bg" id="pw-modal-bg">
@@ -450,7 +472,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
         <div class="search-results" id="search-results"></div>
       </div>
       <div class="topbar-right">
-        <button class="btn blue-btn" onclick="doExport()">&#11015; Exportera</button>
+        <button class="btn blue-btn" onclick="openExportModal()">&#128274; Exportera</button>
         <button class="btn primary" onclick="openNewCustomer()">+ Ny kund</button>
       </div>
     </div>
@@ -970,6 +992,8 @@ const dbPatch=(t,b,p)=>sb('PATCH',t,b,p);
 const dbDel=(t,p)=>sb('DELETE',t,null,p);
 
 let customers=[],industries=[],salespersons=[],notesIndex={};
+/** SHA-256 av exportlösenordet, hex. Null = inget lösenord satt. */
+let exportHash=null;
 let currentCustomerId=null,editingId=null,detailFromPage='customers';
 let lastFiltered=[],allNotes=[],noteFilter='manual';
 let globalSearchResults=[];
@@ -1059,15 +1083,19 @@ function scheduleCloseSearch(){
 async function loadAll(){
   setSyncStatus('busy','Hämtar data...');
   try{
-    const[c,ind,sp,notes]=await Promise.all([
+    const[c,ind,sp,settings,notes]=await Promise.all([
       dbGet('customers','order=company.asc&select=*'),
       dbGet('industries','order=name.asc&select=*'),
       dbGet('salespersons','order=name.asc'),
+      // HASHEN, INTE LÖSENORDET. Raden är läsbar för alla inloggade, precis
+      // som förut — men det som står där går inte att skriva in i rutan.
+      dbGet('app_settings','key=eq.export_password_sha256&select=value'),
       dbGet('notes','order=note_date.desc,created_at.desc&select=*')
     ]);
     customers=c;
     industries=ind.map(r=>r.name);
     salespersons=sp.map(r=>r.name);
+    exportHash=settings&&settings[0]?String(settings[0].value||'').trim().toLowerCase():null;
     notesIndex={};
     notes.forEach(n=>{if(!notesIndex[n.customer_id])notesIndex[n.customer_id]=[];notesIndex[n.customer_id].push(n);});
     setSyncStatus('ok','Synkat');
@@ -1089,6 +1117,51 @@ async function refreshAll(){
   }catch(e){showToast('Uppdatering misslyckades',true);}
 }
 
+/**
+ * Exportspärren.
+ *
+ * LÖSENORDET LAGRAS SOM HASH, inte i klartext. Förut låg det läsbart i
+ * app_settings, så den som kunde läsa tabellen kunde också skriva in det i
+ * rutan. Nu jämförs SHA-256 av det som skrivs mot det som står sparat, och
+ * raden i databasen går inte att använda som lösenord.
+ *
+ * VAD DEN INTE GÖR. En kontroll som körs i webbläsaren över data webbläsaren
+ * redan har går inte att upprätthålla — doExport() kan anropas från konsolen,
+ * och registret går att hämta direkt via API:et med samma inloggning. Spärren
+ * är ett medvetet val av Joakim 2026-09-24: den ska hindra en oavsiktlig
+ * export, inte en beslutsam.
+ *
+ * INGET LÖSENORD SATT betyder öppet, inte låst. Ett tomt app_settings hade
+ * annars låst exporten för alla utan att någon kunde öppna den igen.
+ */
+async function sha256Hex(text){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function openExportModal(){
+  if(!exportHash){doExport();return;}
+  document.getElementById('export-pw-input').value='';
+  document.getElementById('export-pw-err').style.display='none';
+  document.getElementById('export-modal-bg').classList.add('open');
+  setTimeout(()=>document.getElementById('export-pw-input').focus(),100);
+}
+function closeExportModal(){document.getElementById('export-modal-bg').classList.remove('open');}
+async function confirmExport(){
+  const entered=document.getElementById('export-pw-input').value;
+  const err=document.getElementById('export-pw-err');
+  let hash='';
+  try{hash=await sha256Hex(entered);}
+  catch(e){showToast('Kunde inte kontrollera lösenordet i den här webbläsaren',true);return;}
+  if(hash!==exportHash){
+    err.style.display='block';
+    document.getElementById('export-pw-input').value='';
+    document.getElementById('export-pw-input').focus();
+    return;
+  }
+  closeExportModal();
+  doExport();
+}
 function doExport(){
   const isFiltered=document.getElementById('page-customers').classList.contains('active')&&lastFiltered.length&&lastFiltered.length<customers.length;
   const list=isFiltered?lastFiltered:customers;
