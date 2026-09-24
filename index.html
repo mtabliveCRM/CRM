@@ -138,8 +138,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .nav-item:hover{background:var(--bg2);color:var(--text);}
 .nav-item.active{background:var(--bg2);color:var(--text);border-left-color:var(--teal);font-weight:500;}
 .sidebar-footer{padding:16px 18px;border-top:1px solid var(--border);margin-top:auto;}
-.fortnox-connected{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--teal-text);padding:4px 0;}
-.fortnox-disconnected{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);padding:4px 0;}
 .sidebar-footer img{width:100%;max-width:144px;display:block;opacity:.9;}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 .topbar{background:var(--bg1);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;}
@@ -191,15 +189,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:12px 18px;font-size:13px;color:var(--text);z-index:400;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.err{border-color:var(--red);color:var(--red-text);}
-.export-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:center;justify-content:center;}
-.export-modal-bg.open{display:flex;}
-.export-modal{background:var(--bg1);border:1px solid var(--border2);border-radius:var(--rl);padding:28px;width:340px;}
-.export-modal h3{font-size:15px;font-weight:600;margin-bottom:8px;}
-.export-modal p{font-size:13px;color:var(--text2);margin-bottom:16px;}
-.export-modal input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);font-size:13px;color:var(--text);font-family:inherit;margin-bottom:12px;}
-.export-modal input:focus{outline:none;border-color:var(--teal);}
-.export-modal-err{font-size:12px;color:var(--red-text);margin-bottom:10px;display:none;}
-.export-modal-btns{display:flex;gap:8px;justify-content:flex-end;}
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
 .stat-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--rl);padding:18px 20px;cursor:pointer;transition:border-color .15s,background .15s;}
 .stat-card:hover{border-color:var(--teal);background:var(--bg2);}
@@ -381,39 +370,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 <body>
 <div class="loading-overlay" id="loading-overlay"><div class="spinner"></div><div class="loading-text" id="loading-text">Ansluter till databasen...</div></div>
 <div class="toast" id="toast"></div>
-<div class="export-modal-bg" id="export-modal-bg">
-  <div class="export-modal">
-    <h3>&#128274; Exportera data</h3>
-    <p>Ange administratörslösenordet för att exportera kunddata.</p>
-    <input type="password" id="export-pw-input" placeholder="Lösenord..." onkeydown="if(event.key==='Enter')confirmExport()">
-    <div class="export-modal-err" id="export-pw-err">Fel lösenord. Försök igen.</div>
-    <div class="export-modal-btns">
-      <button class="btn ghost" onclick="closeExportModal()">Avbryt</button>
-      <button class="btn primary" onclick="confirmExport()">Exportera</button>
-    </div>
-  </div>
-</div>
 
-<!-- AI ANALYSIS MODAL -->
-<div class="modal-overlay" id="modal-ai" style="z-index:250;">
-  <div class="modal" style="max-width:600px;">
-    <div class="modal-head">
-      <h2>&#10024; AI-analys — <span id="ai-modal-company"></span></h2>
-      <button class="modal-close" onclick="document.getElementById('modal-ai').classList.remove('open')">&#215;</button>
-    </div>
-    <div class="modal-body">
-      <div id="ai-result" style="font-size:14px;line-height:1.7;color:var(--text);min-height:120px;">
-        <div style="display:flex;align-items:center;gap:10px;color:var(--text3);">
-          <div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>
-          Analyserar kunden...
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" onclick="document.getElementById('modal-ai').classList.remove('open')">Stäng</button>
-    </div>
-  </div>
-</div>
 
 <!-- CHANGE PASSWORD MODAL -->
 <div class="pw-modal-bg" id="pw-modal-bg">
@@ -493,7 +450,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
         <div class="search-results" id="search-results"></div>
       </div>
       <div class="topbar-right">
-        <button class="btn blue-btn" onclick="openExportModal()">&#128274; Exportera</button>
+        <button class="btn blue-btn" onclick="doExport()">&#11015; Exportera</button>
         <button class="btn primary" onclick="openNewCustomer()">+ Ny kund</button>
       </div>
     </div>
@@ -722,7 +679,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
                 <select id="analysis-metric" class="fsel" onchange="renderAnalysis()" style="width:100%;">
                   <option value="contacts">Kontakter</option>
                   <option value="prognos">Prognos (kr)</option>
-                  <option value="fakturerat">Fakturerat (Fortnox)</option>
                 </select>
               </div>
               <div style="min-width:110px;">
@@ -851,13 +807,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
             <div class="card"><h3>Bransch</h3><div id="d-ind-chips"></div></div>
             <div class="card">
               <button class="btn full" onclick="editCurrent()" style="margin-bottom:8px;">Redigera kunduppgifter</button>
-              <button class="btn full" id="ai-analyze-btn" onclick="analyzeCustomer()" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-color:#534AB7;color:#afa9ec;font-weight:500;margin-bottom:8px;">&#10024; AI-analys av kund</button>
               <button class="btn full danger-outline" onclick="deleteCurrentCustomer()">&#128465; Radera kund</button>
-            </div>
-            <div class="card" id="fortnox-card">
-              <h3>&#128200; Fortnox — Omsättning</h3>
-              <div id="fortnox-data" style="font-size:13px;color:var(--text3);">Laddar...</div>
-              <div style="margin-top:10px;" id="fortnox-btn-wrap"></div>
             </div>
           </div>
           <div class="card" style="display:flex;flex-direction:column;min-height:560px;">
@@ -1000,8 +950,6 @@ async function bootApp(){
     await loadAll();
     setLoading(false);
     applyDefaultSalespersonFilter();
-    await loadFortnoxSettings();
-    await handleFortnoxCallback();
     nav('dashboard');
     startAutoRefresh();
     startSessionTimeout();
@@ -1024,17 +972,13 @@ const dbDel=(t,p)=>sb('DELETE',t,null,p);
 let customers=[],industries=[],salespersons=[],notesIndex={};
 let currentCustomerId=null,editingId=null,detailFromPage='customers';
 let lastFiltered=[],allNotes=[],noteFilter='manual';
-let exportPassword=null;
 let globalSearchResults=[];
 let searchCloseTimer=null;
 let searchQuery='';
 let sortField='company', sortDir=1;
 let autoRefreshTimer=null;
-let fortnoxToken=null;
 let isAdmin=false;
 const ADMIN_EMAIL='joakimofverbeck@hotmail.com';
-let fortnoxClientId=null;
-let fortnoxClientSecret=null;
 let sessionTimeoutTimer=null;
 const SESSION_TIMEOUT_MS=8*60*60*1000; // 8 timmar
 let defaultSalesperson='';
@@ -1115,17 +1059,15 @@ function scheduleCloseSearch(){
 async function loadAll(){
   setSyncStatus('busy','Hämtar data...');
   try{
-    const[c,ind,sp,settings,notes]=await Promise.all([
+    const[c,ind,sp,notes]=await Promise.all([
       dbGet('customers','order=company.asc&select=*'),
       dbGet('industries','order=name.asc&select=*'),
       dbGet('salespersons','order=name.asc'),
-      dbGet('app_settings','key=eq.export_password&select=value'),
       dbGet('notes','order=note_date.desc,created_at.desc&select=*')
     ]);
     customers=c;
     industries=ind.map(r=>r.name);
     salespersons=sp.map(r=>r.name);
-    exportPassword=settings&&settings[0]?settings[0].value:null;
     notesIndex={};
     notes.forEach(n=>{if(!notesIndex[n.customer_id])notesIndex[n.customer_id]=[];notesIndex[n.customer_id].push(n);});
     setSyncStatus('ok','Synkat');
@@ -1147,14 +1089,6 @@ async function refreshAll(){
   }catch(e){showToast('Uppdatering misslyckades',true);}
 }
 
-function openExportModal(){document.getElementById('export-pw-input').value='';document.getElementById('export-pw-err').style.display='none';document.getElementById('export-modal-bg').classList.add('open');setTimeout(()=>document.getElementById('export-pw-input').focus(),100);}
-function closeExportModal(){document.getElementById('export-modal-bg').classList.remove('open');}
-function confirmExport(){
-  const entered=document.getElementById('export-pw-input').value;
-  if(!exportPassword){showToast('Lösenord ej konfigurerat',true);closeExportModal();return;}
-  if(entered!==exportPassword){document.getElementById('export-pw-err').style.display='block';document.getElementById('export-pw-input').value='';document.getElementById('export-pw-input').focus();return;}
-  closeExportModal();doExport();
-}
 function doExport(){
   const isFiltered=document.getElementById('page-customers').classList.contains('active')&&lastFiltered.length&&lastFiltered.length<customers.length;
   const list=isFiltered?lastFiltered:customers;
@@ -1346,10 +1280,6 @@ function getMetricValue(custId, period, metric){
     const c = customers.find(x=>x.id===custId);
     return c ? (c.prognos||0) : 0;
   }
-  if(metric==='fakturerat'){
-    // Placeholder for Fortnox data — returns 0 until connected
-    return 0;
-  }
   return 0;
 }
 
@@ -1370,7 +1300,7 @@ function renderAnalysis(){
   }
 
   const periods = getPeriods(interval, statsFrom, statsTo);
-  const metricLabels = {contacts:'Kontakter', prognos:'Prognos (kr)', fakturerat:'Fakturerat kr (Fortnox)'};
+  const metricLabels = {contacts:'Kontakter', prognos:'Prognos (kr)'};
   const ct = document.getElementById('analysis-chart-title');
   if(ct) ct.textContent=metricLabels[metric]+' per '+interval+' — '+selectedList.map(c=>c.company).join(', ');
 
@@ -1514,9 +1444,6 @@ function renderAnalysis(){
 
     html+='</tbody></table>';
 
-    if(metric==='fakturerat'){
-      html+='<div style="margin-top:8px;padding:8px 12px;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--r);font-size:12px;color:var(--amber-text);">&#9888; Fortnox ej ansluten — faktureringsdata visas när kopplingen är aktiv.</div>';
-    }
     tblEl.innerHTML=html;
   }
 }
@@ -2042,173 +1969,6 @@ async function clearNextStep(){
   }catch(e){showToast('Kunde inte rensa',true);}
 }
 
-// ── FORTNOX ───────────────────────────────────────────────────────────────────
-async function loadFortnoxSettings(){
-  try{
-    const [cidRow, csecRow, tokenRow] = await Promise.all([
-      dbGet('app_settings','key=eq.fortnox_client_id&select=value'),
-      dbGet('app_settings','key=eq.fortnox_client_secret&select=value'),
-      dbGet('app_settings','key=eq.fortnox_access_token&select=value')
-    ]);
-    fortnoxClientId = cidRow&&cidRow[0]?cidRow[0].value:null;
-    fortnoxClientSecret = csecRow&&csecRow[0]?csecRow[0].value:null;
-    fortnoxToken = tokenRow&&tokenRow[0]?tokenRow[0].value:null;
-  }catch(e){}
-}
-
-function connectFortnox(){
-  if(!fortnoxClientId){showToast('Fortnox Client ID saknas i inställningar',true);return;}
-  const redirectUri=encodeURIComponent(window.location.href.split('?')[0]);
-  const scope=encodeURIComponent('invoice customer companyinformation');
-  const url='https://apps.fortnox.se/oauth-v1/auth?client_id='+fortnoxClientId+'&redirect_uri='+redirectUri+'&scope='+scope+'&state=fortnox_auth&response_type=code&access_type=offline';
-  window.location.href=url;
-}
-
-async function handleFortnoxCallback(){
-  const params=new URLSearchParams(window.location.search);
-  const code=params.get('code');
-  const state=params.get('state');
-  if(!code||state!=='fortnox_auth') return;
-  // Clean URL
-  window.history.replaceState({},document.title,window.location.pathname);
-  showToast('Ansluter till Fortnox...');
-  try{
-    // Exchange code for token via Fortnox
-    const credentials=btoa(fortnoxClientId+':'+fortnoxClientSecret);
-    const resp=await fetch('https://apps.fortnox.se/oauth-v1/token',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/x-www-form-urlencoded',
-        'Authorization':'Basic '+credentials
-      },
-      body:'grant_type=authorization_code&code='+encodeURIComponent(code)+'&redirect_uri='+encodeURIComponent(window.location.href.split('?')[0])
-    });
-    if(!resp.ok) throw new Error('Token exchange failed');
-    const data=await resp.json();
-    fortnoxToken=data.access_token;
-    // Save token to Supabase
-    // Upsert access token
-    try{await dbPost('app_settings',{key:'fortnox_access_token',value:data.access_token});}
-    catch(e){await dbPatch('app_settings',{value:data.access_token},'key=eq.fortnox_access_token');}
-    // If row doesn't exist, insert it
-    if(data.refresh_token){
-      try{await dbPost('app_settings',{key:'fortnox_refresh_token',value:data.refresh_token});}catch(e){}
-    }
-    showToast('Fortnox ansluten!');
-  }catch(e){
-    showToast('Kunde inte ansluta Fortnox: '+e.message,true);
-  }
-}
-
-async function loadFortnoxData(customer){
-  const el=document.getElementById('fortnox-data');
-  const btnWrap=document.getElementById('fortnox-btn-wrap');
-  if(!el) return;
-
-  if(!fortnoxToken){
-    el.innerHTML='<div class="fortnox-disconnected">&#9679; Ej ansluten till Fortnox</div>';
-    if(btnWrap) btnWrap.innerHTML='<button class="btn sm primary" onclick="connectFortnox()">Anslut Fortnox</button>';
-    return;
-  }
-
-  // Search for customer in Fortnox by name or email
-  el.innerHTML='<span style="color:var(--text3);">Hämtar från Fortnox...</span>';
-  if(btnWrap) btnWrap.innerHTML='';
-
-  try{
-    const searchTerm=encodeURIComponent(customer.company);
-    const resp=await fetch('https://api.fortnox.se/3/customers?filter=active&limit=5&search='+searchTerm,{
-      headers:{
-        'Authorization':'Bearer '+fortnoxToken,
-        'Content-Type':'application/json',
-        'Accept':'application/json'
-      }
-    });
-
-    if(resp.status===401){
-      fortnoxToken=null;
-      el.innerHTML='<div class="fortnox-disconnected">&#9679; Fortnox-session utgången</div>';
-      if(btnWrap) btnWrap.innerHTML='<button class="btn sm primary" onclick="connectFortnox()">Återanslut</button>';
-      return;
-    }
-
-    if(!resp.ok) throw new Error('Fortnox API fel: '+resp.status);
-    const data=await resp.json();
-    const customers_fn=data.Customers||[];
-
-    if(!customers_fn.length){
-      el.innerHTML='<div style="color:var(--text3);">Ingen matchande kund hittad i Fortnox</div>';
-      return;
-    }
-
-    // Get invoices for first matching customer
-    const fnCust=customers_fn[0];
-    const invResp=await fetch('https://api.fortnox.se/3/invoices?customernumber='+fnCust.CustomerNumber+'&limit=100',{
-      headers:{'Authorization':'Bearer '+fortnoxToken,'Accept':'application/json'}
-    });
-    const invData=await invResp.json();
-    const invoices=invData.Invoices||[];
-
-    // Calculate totals
-    const now=new Date();
-    const currentYear=now.getFullYear();
-    let totalYear=0,totalPrev=0,totalAll=0;
-    invoices.forEach(inv=>{
-      const yr=parseInt((inv.InvoiceDate||'').substring(0,4));
-      const amt=parseFloat(inv.Total)||0;
-      totalAll+=amt;
-      if(yr===currentYear) totalYear+=amt;
-      if(yr===currentYear-1) totalPrev+=amt;
-    });
-
-    const fmt=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
-    el.innerHTML=
-      '<div class="fortnox-connected">&#9679; Ansluten — '+fnCust.Name+'</div>'
-      +'<div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
-      +'<div style="background:var(--bg2);border-radius:var(--r);padding:10px;">'
-        +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">'+currentYear+' (fakturerat)</div>'
-        +'<div style="font-size:15px;font-weight:600;color:var(--teal-text);">'+fmt(totalYear)+'</div>'
-      +'</div>'
-      +'<div style="background:var(--bg2);border-radius:var(--r);padding:10px;">'
-        +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">'+(currentYear-1)+' (fakturerat)</div>'
-        +'<div style="font-size:15px;font-weight:600;color:var(--blue-text);">'+fmt(totalPrev)+'</div>'
-      +'</div>'
-      +'</div>'
-      +'<div style="margin-top:8px;font-size:12px;color:var(--text3);">Totalt fakturerat: '+fmt(totalAll)+' · '+invoices.length+' fakturor</div>';
-  }catch(e){
-    el.innerHTML='<div style="color:var(--red-text);font-size:12px;">Kunde inte hämta data: '+e.message+'</div>';
-  }
-}
-
-async function analyzeCustomer(){
-  const c=customers.find(x=>x.id===currentCustomerId);if(!c)return;
-  const btn=document.getElementById('ai-analyze-btn');
-  btn.disabled=true;btn.textContent='Analyserar...';
-  document.getElementById('ai-modal-company').textContent=c.company;
-  document.getElementById('ai-result').innerHTML='<div style="display:flex;align-items:center;gap:10px;color:var(--text3);"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>Analyserar kunden...</div>';
-  document.getElementById('modal-ai').classList.add('open');
-  const notes=(notesIndex[c.id]||[]).slice(0,20);
-  const notesText=notes.map(n=>'['+n.note_date+'] '+n.type+': '+n.text).join('\n');
-  const daysSinceLast=c.last_contact?Math.floor((new Date()-new Date(c.last_contact+'T12:00:00'))/86400000):null;
-  const daysToNext=c.next_contact?Math.floor((new Date(c.next_contact+'T12:00:00')-new Date())/86400000):null;
-  const prompt='Du är en erfaren säljcoach inom transportbranschen. Analysera följande kund och ge konkreta, handlingsbara råd på svenska.\n\n'
-    +'KUNDDATA:\nFöretag: '+c.company+'\nKontaktperson: '+(c.contact||'—')+'\nBransch: '+(c.industry||'—')+'\nTemperatur: '+c.temp+'\nStatus: '+c.status+'\nOffert ute: '+(c.has_offer?'Ja':'Nej')+'\nI förhandling: '+(c.has_negotiation?'Ja':'Nej')+'\nÅrsprognos: '+(c.prognos?c.prognos.toLocaleString('sv-SE')+' kr':'—')+'\nSenaste kontakt: '+(c.last_contact?c.last_contact+' ('+daysSinceLast+' dagar sedan)':'Aldrig')+'\nNästa kontakt: '+(c.next_contact?c.next_contact+' (om '+daysToNext+' dagar)':'Ej inplanerat')+'\nNästa steg: '+(c.next_step||'—')+'\nAktiv i år: '+(c.active_year?'Ja':'Nej')+'\n\nANTECKNINGSHISTORIK (senaste 20):\n'+(notesText||'Inga anteckningar')+'\n\nGe din analys i dessa tre delar:\n\n1. **Nuläge** — Kort bedömning av var relationen befinner sig (2-3 meningar)\n\n2. **Varningssignaler** — Lista röda flaggor om sådana finns, annars säg det.\n\n3. **Konkreta nästa steg** — 3-4 specifika åtgärder säljaren bör göra nu.\n\nHåll svaret kortfattat. Inga generella råd — utgå från just denna kunds data.';
-  try{
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})
-    });
-    const data=await response.json();
-    const text=data.content&&data.content[0]?data.content[0].text:'Kunde inte generera analys.';
-    const formatted=text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
-    document.getElementById('ai-result').innerHTML='<p>'+formatted+'</p>';
-  }catch(e){
-    document.getElementById('ai-result').innerHTML='<div style="color:var(--red-text);">Kunde inte ansluta till AI-tjänsten.</div>';
-  }
-  btn.disabled=false;btn.innerHTML='&#10024; AI-analys av kund';
-}
-
 function openPwModal(){
   document.getElementById('pw-new').value='';
   document.getElementById('pw-confirm').value='';
@@ -2396,6 +2156,20 @@ async function clearCreditDate(){if(!confirm('Radera kreditkontrolldatum?'))retu
 
 function setNoteFilter(f){noteFilter=f;['all','manual','system','both'].forEach(k=>{const el=document.getElementById('nf-'+k);if(el)el.classList.remove('active');});const activeId=f==='all'?'nf-both':f==='manual'?'nf-all':'nf-system';const activeEl=document.getElementById(activeId);if(activeEl)activeEl.classList.add('active');renderNotes(allNotes);}
 
+function esc(v){
+  return String(v==null?'':v).replace(/[&<>"']/g,function(t){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[t];
+  });
+}
+
+// Vem som skrev raden. Namnet före @, samma konvention som Embera använder.
+// Gamla anteckningar saknar created_by och får då ingenting alls — ett
+// tankstreck hade sett ut som ett fel i stället för som något som inte fanns.
+function skribent(epost){
+  var namn=String(epost||'').split('@')[0].trim();
+  return namn||null;
+}
+
 function renderNotes(notes){
   let filtered=noteFilter==='system'?notes.filter(n=>n.type==='System'):noteFilter==='all'?notes:notes.filter(n=>n.type!=='System');
   if(!filtered.length){
@@ -2446,14 +2220,20 @@ function renderNotes(notes){
     const pillLabel=isSystem?'System':isNextStep?'Nästa steg':isContact?'Kontakt':'Anteckning';
 
     let html='<div class="note '+cls+'" id="note-card-'+(g.main.id||Math.random())+'">';
-    html+='<div class="note-meta"><span class="note-type-pill '+pillCls+'">'+pillLabel+'</span><span>'+fmtDate(n.note_date)+'</span></div>';
-    html+='<div class="note-text" id="note-text-'+n.id+'">'+n.text+'</div>';
+    var av=skribent(n.created_by);
+    html+='<div class="note-meta"><span class="note-type-pill '+pillCls+'">'+pillLabel+'</span><span>'+fmtDate(n.note_date)+'</span>'
+      +(av?'<span>·</span><span>'+esc(av)+'</span>':'')+'</div>';
+    // TEXTEN ESCAPAS. Den skrivs in för hand och hamnar i innerHTML; ett namn
+    // eller en anteckning med taggar i kunde annars köra kod i sidan.
+    html+='<div class="note-text" id="note-text-'+n.id+'">'+esc(n.text)+'</div>';
 
     // If paired with a Nästa steg, show it inside the same card
     if(ns){
       html+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.07);">';
       html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span class="note-type-pill nextstep">Nästa steg</span></div>';
-      html+='<div class="note-text" style="color:var(--purple-text);" id="note-text-'+ns.id+'">'+ns.text+'</div>';
+      var avNs=skribent(ns.created_by);
+      if(avNs) html+='<div class="note-meta" style="margin-bottom:4px;"><span>'+esc(avNs)+'</span></div>';
+      html+='<div class="note-text" style="color:var(--purple-text);" id="note-text-'+ns.id+'">'+esc(ns.text)+'</div>';
       html+='</div>';
     }
 
@@ -2499,7 +2279,6 @@ async function openDetail(id,fromPage){
   document.getElementById('note-text').value='';document.getElementById('nextstep-text').value='';
   noteFilter='manual';setNoteFilter('manual');
   renderCreditDisplay();
-  loadFortnoxData(c);
   // Update Kontaktad button label based on temp
   const kBtn=document.getElementById('kontaktad-btn');
   if(kBtn){const td={'Het':14,'Ljummen':30,'Sval':60};const d=td[c.temp]||14;kBtn.innerHTML='&#10003; Kontaktad (+'+d+' vardagar)';}
